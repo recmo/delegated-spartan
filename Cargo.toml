@@ -1,0 +1,36 @@
+[package]
+name = "delegated-spartan"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+ark-ff = { version = "0.4.0", default-features = false, features = ["asm", "parallel", "rayon", "std"] }
+ark-ec = { version = "0.4.0", default-features = false, features = ["parallel", "rayon", "std"] }
+ark-std = { version = "0.4.0"}
+ark-linear-sumcheck = { version = "0.4.0", features = ["std", "parallel", "rayon"] }
+ark-serialize = { version = "0.4.0", features = ["derive"] }
+ark-crypto-primitives = { version = "0.4.0", features = ["sponge", "r1cs", "snark", "parallel", "commitment", "prf"] }
+ark-r1cs-std = { version = "0.4.0", default-features = false }
+ark-relations = { version = "0.4.0", features = ["std", "tracing-subscriber"] }
+ark-snark = { version = "0.4.0", default-features = false }
+ark-groth16 = { version = "0.3.0", features = ["std", "ark-r1cs-std", "r1cs", "rayon"] }
+rand = "0.8.5"
+ark-bn254 = { version = "0.4.0", features = ["std"] }
+ark-poly-commit = { version = "0.4.0", features = ["std", "rayon", "parallel", "ark-r1cs-std", "ark-relations", "r1cs", "print-trace"] }
+spartan = { version = "0.8.0", features = ["multicore", "rayon", "colored", "std"], default-features = false }
+merlin = "3.0.0"
+bincode = "1.3.3"
+size = "0.4.1"
+rayon = "1.10.0"
+humantime = "2.1.0"
+
+[profile.release]
+debug = true # Generate symbol info for profiling
+
+# Doing light optimizations helps test performance more than it hurts build time.
+[profile.test]
+opt-level = 2
+
+# Compilation profile for any non-workspace member.
+[profile.dev.package."*"]
+opt-level = 3
