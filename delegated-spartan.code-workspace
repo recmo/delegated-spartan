@@ -1,0 +1,26 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../../microsoft/Spartan"
+		},
+		{
+			"path": "../../worldcoin/remainder-hyrax-tfh"
+		},
+		{
+			"path": "../../Modulus-Labs/remainder_hyrax"
+		},
+		{
+			"path": "../../a16z/jolt"
+		},
+		{
+			"path": "../../microsoft/Spartan2"
+		},
+		{
+			"path": "../../geometryxyz/wgsl-poseidon"
+		}
+	],
+	"settings": {}
+}

@@ -17,12 +17,14 @@ ark-groth16 = { version = "0.3.0", features = ["std", "ark-r1cs-std", "r1cs", "r
 rand = "0.8.5"
 ark-bn254 = { version = "0.4.0", features = ["std"] }
 ark-poly-commit = { version = "0.4.0", features = ["std", "rayon", "parallel", "ark-r1cs-std", "ark-relations", "r1cs", "print-trace"] }
-spartan = { version = "0.8.0", features = ["multicore", "rayon", "colored", "std"], default-features = false }
+spartan = { version = "0.8.0", features = [ "rayon", "colored", "std", "profile"], default-features = false }
 merlin = "3.0.0"
 bincode = "1.3.3"
 size = "0.4.1"
-rayon = "1.10.0"
+rayon = "1.7"
 humantime = "2.1.0"
+halo2curves = "0.6.1"
+jolt-core = { git = "https://github.com/a16z/jolt.git", version = "0.1.0" }
 
 [profile.release]
 debug = true # Generate symbol info for profiling
@@ -34,3 +36,7 @@ opt-level = 2
 # Compilation profile for any non-workspace member.
 [profile.dev.package."*"]
 opt-level = 3
+
+[patch.crates-io]
+# Use a local version of the `spartan` crate
+spartan = { path = "../../microsoft/Spartan" }
