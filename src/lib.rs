@@ -1,5 +1,4 @@
 pub mod hyrax;
-pub mod poseidon;
 mod transcript;
 
-pub use transcript::Transcript;
+pub use transcript::{poseidon_permute, ProverTranscript, Sponge, VerifierTranscript};

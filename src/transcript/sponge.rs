@@ -1,4 +1,4 @@
-use {crate::poseidon, ark_bn254::Fr, ark_ff::MontFp};
+use {super::poseidon_permute, ark_bn254::Fr, ark_ff::MontFp};
 
 // Random initial state (nothing up my sleeve: digits of 2 * pi in groups of 77 digits)
 const INITIAL_STATE: [Fr; 3] = [
@@ -7,7 +7,7 @@ const INITIAL_STATE: [Fr; 3] = [
     MontFp!("23490056820540387704221111928924589790986076392885762195133186689225695129646"),
 ];
 
-pub struct Transcript {
+pub struct Sponge {
     state: [Fr; 3],
     sponge: SpongeState,
 }
@@ -20,7 +20,7 @@ enum SpongeState {
     Full,
 }
 
-impl Transcript {
+impl Sponge {
     pub fn new() -> Self {
         Self {
             state: INITIAL_STATE,
@@ -28,7 +28,7 @@ impl Transcript {
         }
     }
 
-    pub fn write(&mut self, value: Fr) {
+    pub fn absorb(&mut self, value: Fr) {
         match self.sponge {
             SpongeState::Initial => {
                 self.state[0] += value;
@@ -39,14 +39,14 @@ impl Transcript {
                 self.sponge = SpongeState::Full;
             }
             SpongeState::Full | SpongeState::Squeezing => {
-                poseidon::permute(&mut self.state);
+                poseidon_permute(&mut self.state);
                 self.state[0] += value;
                 self.sponge = SpongeState::Absorbing;
             }
         }
     }
 
-    pub fn read(&mut self) -> Fr {
+    pub fn squeeze(&mut self) -> Fr {
         match self.sponge {
             SpongeState::Initial => {
                 self.sponge = SpongeState::Squeezing;
@@ -57,7 +57,7 @@ impl Transcript {
                 self.state[1]
             }
             SpongeState::Full | SpongeState::Absorbing => {
-                poseidon::permute(&mut self.state);
+                poseidon_permute(&mut self.state);
                 self.sponge = SpongeState::Squeezing;
                 self.state[0]
             }

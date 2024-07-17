@@ -6,7 +6,7 @@ use {
     ark_ff::Field,
 };
 
-pub fn permute(state: &mut [Fr; 3]) {
+pub fn poseidon_permute(state: &mut [Fr; 3]) {
     for (i, rc) in RC.iter().enumerate() {
         // Add round constants
         state[0] += rc[0];
@@ -52,7 +52,7 @@ mod test {
         // sage ./poseidonperm_x5_254_3.sage
         // Using the script from https://extgit.iaik.tugraz.at/krypto/hadeshash/-/blob/208b5a164c6a252b137997694d90931b2bb851c5/code/poseidonperm_x5_254_3.sage
         let mut state = [Fr::from(0), Fr::from(1), Fr::from(2)];
-        permute(&mut state);
+        poseidon_permute(&mut state);
         assert_eq!(
             state.map(|n| hex::encode(n.into_bigint().to_bytes_be())),
             [
