@@ -1,49 +1,66 @@
-use {
-    ark_bn254::Fr, ark_crypto_primitives::sponge::poseidon::PoseidonSponge,
-    num_traits::identities::Zero, rand::SeedableRng, rand_chacha::ChaCha20Rng,
-};
+use {crate::poseidon, ark_bn254::Fr, ark_ff::MontFp};
 
-const CONFIG: PoseidonConfig<Fr> = PoseidonConfig {
-    /// Number of rounds in a full-round operation.
-    pub full_rounds: usize,
-    /// Number of rounds in a partial-round operation.
-    pub partial_rounds: usize,
-    /// Exponent used in S-boxes.
-    pub alpha: u64,
-    /// Additive Round keys. These are added before each MDS matrix application to make it an affine shift.
-    /// They are indexed by `ark[round_num][state_element_index]`
-    pub ark: Vec<Vec<F>>,
-    /// Maximally Distance Separating (MDS) Matrix.
-    pub mds: Vec<Vec<F>>,
-    /// The rate (in terms of number of field elements).
-    /// See [On the Indifferentiability of the Sponge Construction](https://iacr.org/archive/eurocrypt2008/49650180/49650180.pdf)
-    /// for more details on the rate and capacity of a sponge.
-    pub rate: usize,
-    /// The capacity (in terms of number of field elements).
-    pub capacity: usize,
-}
+// Random initial state (nothing up my sleeve: digits of 2 * pi in groups of 77 digits)
+const INITIAL_STATE: [Fr; 3] = [
+    MontFp!("62831853071795864769252867665590057683943387987502116419498891846156328125724"),
+    MontFp!("17997256069650684234135964296173026564613294187689219101164463450718816256962"),
+    MontFp!("23490056820540387704221111928924589790986076392885762195133186689225695129646"),
+];
 
 pub struct Transcript {
-    hasher: PoseidonSponge<Fr>,
-    state: Fr,
+    state: [Fr; 3],
+    sponge: SpongeState,
+}
+
+// Sponge with rate 2 and capacity 1
+enum SpongeState {
+    Initial,
+    Absorbing,
+    Squeezing,
+    Full,
 }
 
 impl Transcript {
     pub fn new() -> Self {
-        let mut rng = ChaCha20Rng::seed_from_u64(SEED);
-        let params = Fr::get
         Self {
-            hasher: Poseidon::new(PoseidonParameters::generate(&mut rng)),
-            state: Fr::zero(),
+            state: INITIAL_STATE,
+            sponge: SpongeState::Initial,
         }
     }
 
-    pub fn send(&mut self, message: Fr) {
-        self.state = self.hasher.hash_two(self.state, message);
+    pub fn write(&mut self, value: Fr) {
+        match self.sponge {
+            SpongeState::Initial => {
+                self.state[0] += value;
+                self.sponge = SpongeState::Absorbing;
+            }
+            SpongeState::Absorbing => {
+                self.state[1] += value;
+                self.sponge = SpongeState::Full;
+            }
+            SpongeState::Full | SpongeState::Squeezing => {
+                poseidon::permute(&mut self.state);
+                self.state[0] += value;
+                self.sponge = SpongeState::Absorbing;
+            }
+        }
     }
 
-    pub fn challenge_scalar(&mut self, label: &str) -> u64 {
-        println!("{}: 0", label);
-        0
+    pub fn read(&mut self) -> Fr {
+        match self.sponge {
+            SpongeState::Initial => {
+                self.sponge = SpongeState::Squeezing;
+                self.state[0]
+            }
+            SpongeState::Squeezing => {
+                self.sponge = SpongeState::Full;
+                self.state[1]
+            }
+            SpongeState::Full | SpongeState::Absorbing => {
+                poseidon::permute(&mut self.state);
+                self.sponge = SpongeState::Squeezing;
+                self.state[0]
+            }
+        }
     }
 }

@@ -3,28 +3,21 @@ mod constants;
 use {
     self::constants::{MDS, RC},
     ark_bn254::Fr,
-    ark_crypto_primitives::sponge::{
-        poseidon::{PoseidonConfig, PoseidonSponge},
-        CryptographicSponge, FieldBasedCryptographicSponge,
-    },
-    ark_ff::{Field, PrimeField, Zero},
-    std::ops::Range,
+    ark_ff::Field,
 };
 
 pub fn permute(state: &mut [Fr; 3]) {
-    const EXP: &[u64] = &[5];
-
     for (i, rc) in RC.iter().enumerate() {
         // Add round constants
         state[0] += rc[0];
         state[1] += rc[1];
         state[2] += rc[2];
 
-        // Non-linear layer
-        state[0] = state[0].pow(EXP);
+        // Non-linear layer: x -> x^5  (full and half rounds)
+        state[0] *= state[0].square().square_in_place();
         if !(4..60).contains(&i) {
-            state[1] = state[1].pow(EXP);
-            state[2] = state[2].pow(EXP);
+            state[1] *= state[1].square().square_in_place();
+            state[2] *= state[2].square().square_in_place();
         }
 
         // MDS layer

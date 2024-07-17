@@ -1,1 +1,1 @@
-mod pederson;
+pub mod pedersen;

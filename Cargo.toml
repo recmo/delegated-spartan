@@ -12,6 +12,7 @@ ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
 num-traits = "0.2.19"
 ark-ff = { version = "0.4.2", features = ["asm", "parallel", "rayon", "std"] }
 hex-literal = "0.4.1"
+ark-ec = "0.4.2"
 
 [profile.release]
 debug = true # Generate symbol info for profiling
@@ -28,6 +29,13 @@ opt-level = 3
 criterion = { version = "0.4", features = ["html_reports"] }
 hex = "0.4.3"
 
+[profile.bench]
+harness = false
+
 [[bench]]
 name = "poseidon"
+harness = false
+
+[[bench]]
+name = "pedersen"
 harness = false

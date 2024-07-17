@@ -1,6 +1,6 @@
 use {
     ark_bn254::Fr,
-    criterion::{black_box, criterion_group, criterion_main, Criterion},
+    criterion::{criterion_group, criterion_main, Criterion},
     delegated_spartan::poseidon::permute,
 };
 
