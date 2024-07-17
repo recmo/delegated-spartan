@@ -13,7 +13,7 @@ pub fn permute(state: &mut [Fr; 3]) {
         state[1] += rc[1];
         state[2] += rc[2];
 
-        // Non-linear layer: x -> x^5  (full and half rounds)
+        // Non-linear layer: x -> x^5 (full and half rounds)
         state[0] *= state[0].square().square_in_place();
         if !(4..60).contains(&i) {
             state[1] *= state[1].square().square_in_place();

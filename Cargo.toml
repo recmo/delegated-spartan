@@ -10,9 +10,10 @@ rand_chacha = { version = "0.3.1", features = ["simd"] }
 bincode = "1.3.3"
 ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
 num-traits = "0.2.19"
-ark-ff = { version = "0.4.2", features = ["asm", "parallel", "rayon", "std"] }
+ark-ff = { version = "0.4.2", features = ["asm", "std"] }
 hex-literal = "0.4.1"
-ark-ec = "0.4.2"
+ark-ec = { version = "0.4.2", features = ["std"] }
+rayon = "1.10.0"
 
 [profile.release]
 debug = true # Generate symbol info for profiling
@@ -28,9 +29,6 @@ opt-level = 3
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
 hex = "0.4.3"
-
-[profile.bench]
-harness = false
 
 [[bench]]
 name = "poseidon"
