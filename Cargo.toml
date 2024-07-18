@@ -15,6 +15,8 @@ hex-literal = "0.4.1"
 ark-ec = { version = "0.4.2", features = ["std"] }
 rayon = "1.10.0"
 thiserror = "1.0.63"
+tracing = "0.1.40"
+tracing-indicatif = "0.3.6"
 
 [profile.release]
 debug = true # Generate symbol info for profiling
@@ -37,4 +39,8 @@ harness = false
 
 [[bench]]
 name = "pedersen"
+harness = false
+
+[[bench]]
+name = "hyrax"
 harness = false

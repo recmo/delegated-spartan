@@ -3,7 +3,8 @@ use {
     ark_ec::scalar_mul::{fixed_base::FixedBase, variable_base::VariableBaseMSM},
     criterion::{black_box, criterion_group, criterion_main, Criterion},
     delegated_spartan::hyrax::pedersen::PedersenCommitter,
-    rand::Rng,
+    rand::{Rng, SeedableRng},
+    rand_chacha::ChaCha20Rng,
     std::array,
 };
 
@@ -16,18 +17,18 @@ fn bench_pedersen_new(c: &mut Criterion) {
 
 fn bench_pedersen_commit(c: &mut Criterion) {
     const SIZE: usize = 1 << 10;
-    let mut rng = rand::thread_rng();
+    let mut rng = ChaCha20Rng::from_entropy();
     let commiter = PedersenCommitter::new(SIZE);
     let scalars = (0..SIZE).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
     c.bench_function("pedersen_commit", |b| {
-        b.iter(|| commiter.commit(black_box(&scalars), &mut rng))
+        b.iter(|| commiter.commit(&mut rng, black_box(&scalars)))
     });
 }
 
 fn ref_wnaf(c: &mut Criterion) {
     const SIZE: usize = 1 << 10;
-    assert_eq!(rayon::current_num_threads(), 1);
-    let mut rng = rand::thread_rng();
+    // assert_eq!(rayon::current_num_threads(), 1);
+    let mut rng = ChaCha20Rng::from_entropy();
     let generator: G1Projective = rng.gen();
     let scalars = (0..SIZE).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
     let window_size = FixedBase::get_mul_window_size(SIZE); // returns 6 for size 1000
@@ -39,8 +40,8 @@ fn ref_wnaf(c: &mut Criterion) {
 
 fn ref_pipenger(c: &mut Criterion) {
     const SIZE: usize = 1 << 10;
-    assert_eq!(rayon::current_num_threads(), 1);
-    let mut rng = rand::thread_rng();
+    // assert_eq!(rayon::current_num_threads(), 1);
+    let mut rng = ChaCha20Rng::from_entropy();
     let generators: [G1Affine; SIZE] = array::from_fn(|_| rng.gen());
     let scalars = (0..SIZE).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
     c.bench_function("reference_pipenger", |b| {

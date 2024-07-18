@@ -52,15 +52,26 @@ impl PedersenCommitter {
     }
 
     /// Batch commitment as in Hyrax.
-    pub fn batch_commit(&self, rng: &mut impl Rng, values: &[Fr]) -> Vec<(Fr, G1Affine)> {
-        let batch_size = values.len() / (self.generators.len() - 1);
-        assert_eq!((self.generators.len() - 1) * batch_size, values.len());
+    pub fn batch_commit(
+        &self,
+        rng: &mut impl Rng,
+        transcript: &mut ProverTranscript,
+        values: &[Fr],
+    ) -> Vec<Fr> {
+        assert!(
+            values.len() % (self.generators.len() - 1) == 0,
+            "Values not whole number of vectors."
+        );
         // This uses Pipenger, but for Hyrax we could also do WNAF over the columns.
         // Benchmarking shows that take about equal time.
         // TODO: there should be a way to combine both.
         values
             .chunks_exact(self.generators.len() - 1)
-            .map(|chunk| self.commit(rng, chunk))
+            .map(|chunk| {
+                let (s, c) = self.commit(rng, chunk);
+                transcript.write_g1(c);
+                s
+            })
             .collect()
     }
 
@@ -75,7 +86,7 @@ impl PedersenCommitter {
     // Prove that two values are equal.
     // Only the secrets are required.
     // **Warning** This does not verify the vector lentghs and they are implicitely zero padded.
-    pub fn proof_equal(&self, rng: &mut impl Rng, transcript: &mut ProverTranscript, a: Fr, b: Fr) {
+    pub fn prove_equal(&self, rng: &mut impl Rng, transcript: &mut ProverTranscript, a: Fr, b: Fr) {
         let (s, c) = self.commit(rng, &[]);
         transcript.write_g1(c);
         let r = transcript.read();
@@ -101,7 +112,7 @@ impl PedersenCommitter {
         }
     }
 
-    pub fn proof_product(
+    pub fn prove_product(
         &self,
         rng: &mut impl Rng,
         transcript: &mut ProverTranscript,
@@ -156,7 +167,7 @@ impl PedersenCommitter {
 
     /// Proof that c = a . b.
     /// From a only the secret and values are used, from b nothing is used, and from c only the secret is used.
-    pub fn proof_dot_product(
+    pub fn prove_dot_product(
         &self,
         rng: &mut impl Rng,
         transcript: &mut ProverTranscript,
@@ -199,7 +210,6 @@ impl PedersenCommitter {
         let lhs = v + c * r;
         let rhs = self.compute_commitment(z_v, &[secret_dot]);
         if lhs != rhs {
-            panic!();
             return Err(Error::PedersenVerificationFailed);
         }
         Ok(())
@@ -216,30 +226,30 @@ mod test {
     fn test_commit() {
         let size = 1000;
         let mut rng = ChaCha20Rng::from_entropy();
-        let committer = PedersenCommitter::new(size);
+        let pedersen = PedersenCommitter::new(size);
         let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
 
         // Prove
-        let (s, c) = committer.commit(&mut rng, &a);
+        let (s, c) = pedersen.commit(&mut rng, &a);
 
         // Verify
-        committer.verify(c, s, &a).unwrap();
+        pedersen.verify(c, s, &a).unwrap();
     }
 
     #[test]
     fn test_equal() {
         let size = 1000;
         let mut rng = ChaCha20Rng::from_entropy();
-        let committer = PedersenCommitter::new(size);
+        let pedersen = PedersenCommitter::new(size);
         let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
 
         // Prove
         let mut transcript = ProverTranscript::new();
-        let (sa, ca) = committer.commit(&mut rng, &a);
+        let (sa, ca) = pedersen.commit(&mut rng, &a);
         transcript.write_g1(ca);
-        let (sb, cb) = committer.commit(&mut rng, &a);
+        let (sb, cb) = pedersen.commit(&mut rng, &a);
         transcript.write_g1(cb);
-        committer.proof_equal(&mut rng, &mut transcript, sa, sb);
+        pedersen.prove_equal(&mut rng, &mut transcript, sa, sb);
         let proof = transcript.finish();
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
@@ -247,26 +257,26 @@ mod test {
         let mut transcript = VerifierTranscript::new(&proof);
         let ca = transcript.read_g1();
         let cb = transcript.read_g1();
-        committer.verify_equal(&mut transcript, ca, cb).unwrap();
+        pedersen.verify_equal(&mut transcript, ca, cb).unwrap();
     }
 
     #[test]
     fn test_product() {
         let mut rng = ChaCha20Rng::from_entropy();
-        let committer = PedersenCommitter::new(1);
+        let pedersen = PedersenCommitter::new(1);
         let a = rng.gen();
         let b = rng.gen();
         let c = a * b;
 
         // Prove
         let mut transcript = ProverTranscript::new();
-        let (sa, ca) = committer.commit(&mut rng, &[a]);
-        let (sb, cb) = committer.commit(&mut rng, &[b]);
-        let (sc, cc) = committer.commit(&mut rng, &[c]);
+        let (sa, ca) = pedersen.commit(&mut rng, &[a]);
+        let (sb, cb) = pedersen.commit(&mut rng, &[b]);
+        let (sc, cc) = pedersen.commit(&mut rng, &[c]);
         transcript.write_g1(ca);
         transcript.write_g1(cb);
         transcript.write_g1(cc);
-        committer.proof_product(&mut rng, &mut transcript, (sa, ca, a), (sb, b), sc);
+        pedersen.prove_product(&mut rng, &mut transcript, (sa, ca, a), (sb, b), sc);
         let proof = transcript.finish();
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
@@ -275,7 +285,7 @@ mod test {
         let ca = transcript.read_g1();
         let cb = transcript.read_g1();
         let cc = transcript.read_g1();
-        committer
+        pedersen
             .verify_product(&mut transcript, ca, cb, cc)
             .unwrap();
     }
@@ -284,18 +294,18 @@ mod test {
     fn test_dot() {
         let size = 1000;
         let mut rng = ChaCha20Rng::from_entropy();
-        let committer = PedersenCommitter::new(size);
+        let pedersen = PedersenCommitter::new(size);
         let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
         let b = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
         let c = a.iter().zip(b.iter()).map(|(a, b)| a * b).sum();
 
         // Prove
         let mut transcript = ProverTranscript::new();
-        let (sa, ca) = committer.commit(&mut rng, &a);
+        let (sa, ca) = pedersen.commit(&mut rng, &a);
         transcript.write_g1(ca);
-        let (sc, cc) = committer.commit(&mut rng, &[c]);
+        let (sc, cc) = pedersen.commit(&mut rng, &[c]);
         transcript.write_g1(cc);
-        committer.proof_dot_product(&mut rng, &mut transcript, (sa, &a), &b, sc);
+        pedersen.prove_dot_product(&mut rng, &mut transcript, (sa, &a), &b, sc);
         let proof = transcript.finish();
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
@@ -303,7 +313,7 @@ mod test {
         let mut transcript = VerifierTranscript::new(&proof);
         let ca = transcript.read_g1();
         let cc = transcript.read_g1();
-        committer
+        pedersen
             .verify_dot_product(&mut transcript, ca, &b, cc)
             .unwrap();
     }
