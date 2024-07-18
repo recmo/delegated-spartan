@@ -44,3 +44,7 @@ harness = false
 [[bench]]
 name = "hyrax"
 harness = false
+
+[[bench]]
+name = "mle"
+harness = false
