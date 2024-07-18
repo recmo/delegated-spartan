@@ -9,6 +9,7 @@ use {
 
 const SEED: [u8; 32] = *b"pedersen::PedersenCommitter::new";
 
+// ToDO: Better and completer error handling
 pub struct PedersenCommitter {
     // Generators h, g_1, g_2, ..., g_n for the Pedersen commitment scheme.
     generators: Vec<G1Affine>,
@@ -25,6 +26,7 @@ pub enum Error {
 impl PedersenCommitter {
     pub fn new(size: usize) -> Self {
         // Generators are PRNG generated.
+        // IDEA: We coould append more values as we need them.
         let mut rng = ChaCha20Rng::from_seed(SEED);
         Self {
             generators: (0..=size).map(|_| rng.gen()).collect(),
@@ -33,6 +35,7 @@ impl PedersenCommitter {
 
     /// Commit to a value using the Pedersen commitment scheme.
     /// Returns the prover secret and the commitment.
+    /// IDEA: Prover never uses the G1Affine, so we may as well write it to transcript?
     pub fn commit(&self, rng: &mut impl Rng, values: &[Fr]) -> (Fr, G1Affine) {
         let secret = rng.gen();
         (secret, self.compute_commitment(secret, values))
@@ -69,17 +72,14 @@ impl PedersenCommitter {
         }
     }
 
-    pub fn proof_equal(
-        &self,
-        rng: &mut impl Rng,
-        transcript: &mut ProverTranscript,
-        a: (Fr, G1Affine),
-        b: (Fr, G1Affine),
-    ) {
+    // Prove that two values are equal.
+    // Only the secrets are required.
+    // **Warning** This does not verify the vector lentghs and they are implicitely zero padded.
+    pub fn proof_equal(&self, rng: &mut impl Rng, transcript: &mut ProverTranscript, a: Fr, b: Fr) {
         let (s, c) = self.commit(rng, &[]);
         transcript.write_g1(c);
         let r = transcript.read();
-        let z = r * (a.0 - b.0) + s;
+        let z = r * (a - b) + s;
         transcript.write(z);
     }
 
@@ -99,6 +99,62 @@ impl PedersenCommitter {
         } else {
             Err(Error::PedersenEqualityVerificationFailed)
         }
+    }
+
+    pub fn proof_product(
+        &self,
+        rng: &mut impl Rng,
+        transcript: &mut ProverTranscript,
+        a: (Fr, G1Affine, Fr),
+        b: (Fr, Fr),
+        c: Fr,
+    ) {
+        let (u, v) = rng.gen();
+        let (su, cu) = self.commit(rng, &[u]);
+        let (sv, cv) = self.commit(rng, &[v]);
+        transcript.write_g1(cu);
+        transcript.write_g1(cv);
+        let sw = rng.gen::<Fr>();
+        let cw = self.generators[0] * sw + a.1 * v;
+        transcript.write_g1(cw.into());
+        let r = transcript.read();
+        transcript.write(su + r * a.0);
+        transcript.write(u + r * a.2);
+        transcript.write(sv + r * b.0);
+        transcript.write(v + r * b.1);
+        transcript.write(sw + r * (c - a.0 * b.1));
+    }
+
+    pub fn verify_product(
+        &self,
+        transcript: &mut VerifierTranscript,
+        ca: G1Affine,
+        cb: G1Affine,
+        cc: G1Affine,
+    ) -> Result<(), Error> {
+        let (h, g) = (self.generators[0], self.generators[1]);
+        let cu = transcript.read_g1();
+        let cv = transcript.read_g1();
+        let cw = transcript.read_g1();
+        let r = transcript.generate();
+        let zsa = transcript.read();
+        let za = transcript.read();
+        let zsb = transcript.read();
+        let zb = transcript.read();
+        let z = transcript.read();
+        if cu + ca * r != h * zsa + g * za {
+            panic!();
+            return Err(Error::PedersenVerificationFailed);
+        }
+        if cv + cb * r != h * zsb + g * zb {
+            panic!();
+            return Err(Error::PedersenVerificationFailed);
+        }
+        if cw + cc * r != h * z + ca * zb {
+            panic!();
+            return Err(Error::PedersenVerificationFailed);
+        }
+        Ok(())
     }
 
     /// Proof that c = a . b.
@@ -143,13 +199,118 @@ impl PedersenCommitter {
         let lhs = cb + c * r;
         let rhs = self.compute_commitment(z_b, &[secret_dot]);
         if lhs != rhs {
+            panic!();
             return Err(Error::PedersenVerificationFailed);
         }
         let lhs = cd + a * r;
         let rhs = self.compute_commitment(z_d, &z);
         if lhs != rhs {
+            panic!();
             return Err(Error::PedersenVerificationFailed);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    // TODO: Randomized testing
+
+    #[test]
+    fn test_commit() {
+        let size = 1000;
+        let mut rng = ChaCha20Rng::from_entropy();
+        let committer = PedersenCommitter::new(size);
+        let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+
+        // Prove
+        let (s, c) = committer.commit(&mut rng, &a);
+
+        // Verify
+        committer.verify(c, s, &a).unwrap();
+    }
+
+    #[test]
+    fn test_equal() {
+        let size = 1000;
+        let mut rng = ChaCha20Rng::from_entropy();
+        let committer = PedersenCommitter::new(size);
+        let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+
+        // Prove
+        let mut transcript = ProverTranscript::new();
+        let (sa, ca) = committer.commit(&mut rng, &a);
+        transcript.write_g1(ca);
+        let (sb, cb) = committer.commit(&mut rng, &a);
+        transcript.write_g1(cb);
+        committer.proof_equal(&mut rng, &mut transcript, sa, sb);
+        let proof = transcript.finish();
+        dbg!(proof.len() * std::mem::size_of::<Fr>());
+
+        // Verify
+        let mut transcript = VerifierTranscript::new(&proof);
+        let ca = transcript.read_g1();
+        let cb = transcript.read_g1();
+        committer.verify_equal(&mut transcript, ca, cb).unwrap();
+    }
+
+    #[test]
+    fn test_product() {
+        let mut rng = ChaCha20Rng::from_entropy();
+        let committer = PedersenCommitter::new(1);
+        let a = rng.gen();
+        let b = rng.gen();
+        let c = a * b;
+
+        // Prove
+        let mut transcript = ProverTranscript::new();
+        let (sa, ca) = committer.commit(&mut rng, &[a]);
+        let (sb, cb) = committer.commit(&mut rng, &[b]);
+        let (sc, cc) = committer.commit(&mut rng, &[c]);
+        transcript.write_g1(ca);
+        transcript.write_g1(cb);
+        transcript.write_g1(cc);
+        committer.proof_product(&mut rng, &mut transcript, (sa, ca, a), (sb, b), sc);
+        let proof = transcript.finish();
+        dbg!(proof.len() * std::mem::size_of::<Fr>());
+
+        // Verify
+        let mut transcript = VerifierTranscript::new(&proof);
+        let ca = transcript.read_g1();
+        let cb = transcript.read_g1();
+        let cc = transcript.read_g1();
+        committer
+            .verify_product(&mut transcript, ca, cb, cc)
+            .unwrap();
+    }
+
+    #[test]
+    fn test_dot() {
+        let size = 1000;
+        let mut rng = ChaCha20Rng::from_entropy();
+        let committer = PedersenCommitter::new(size);
+        let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let b = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let c = a.iter().zip(b.iter()).map(|(a, b)| a * b).sum();
+
+        // Prove
+        let mut transcript = ProverTranscript::new();
+        let (sa, ca) = committer.commit(&mut rng, &a);
+        transcript.write_g1(ca);
+        let (sc, cc) = committer.commit(&mut rng, &[c]);
+        transcript.write_g1(cc);
+        committer.proof_dot_product(&mut rng, &mut transcript, (sa, &a), sc);
+        let proof = transcript.finish();
+        dbg!(proof.len() * std::mem::size_of::<Fr>());
+
+        // Verify
+        let mut transcript = VerifierTranscript::new(&proof);
+        let ca = transcript.read_g1();
+        let cc = transcript.read_g1();
+        committer
+            .verify_dot_product(&mut transcript, ca, &b, cc)
+            .unwrap();
     }
 }

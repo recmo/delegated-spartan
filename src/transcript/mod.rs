@@ -26,6 +26,10 @@ impl ProverTranscript {
         }
     }
 
+    pub fn finish(self) -> Vec<Fr> {
+        self.proof
+    }
+
     pub fn read(&mut self) -> Fr {
         self.sponge.squeeze()
     }
