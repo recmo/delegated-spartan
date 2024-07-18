@@ -143,15 +143,12 @@ impl PedersenCommitter {
         let zb = transcript.read();
         let z = transcript.read();
         if cu + ca * r != h * zsa + g * za {
-            panic!();
             return Err(Error::PedersenVerificationFailed);
         }
         if cv + cb * r != h * zsb + g * zb {
-            panic!();
             return Err(Error::PedersenVerificationFailed);
         }
         if cw + cc * r != h * z + ca * zb {
-            panic!();
             return Err(Error::PedersenVerificationFailed);
         }
         Ok(())
@@ -164,20 +161,21 @@ impl PedersenCommitter {
         rng: &mut impl Rng,
         transcript: &mut ProverTranscript,
         a: (Fr, &[Fr]),
+        b: &[Fr],
         c: Fr,
     ) {
         let secret: Vec<Fr> = (0..a.1.len()).map(|_| rng.gen()).collect();
-        let secret_dot = a.1.iter().zip(secret.iter()).map(|(a, b)| a * b).sum();
-        let (s_b, b) = self.commit(rng, &[secret_dot]);
-        let (s_d, d) = self.commit(rng, &secret);
-        transcript.write_g1(b);
-        transcript.write_g1(d);
+        let secret_dot = secret.iter().zip(b.iter()).map(|(s, b)| s * b).sum();
+        let (s_u, u) = self.commit(rng, &secret);
+        let (s_v, v) = self.commit(rng, &[secret_dot]);
+        transcript.write_g1(u);
+        transcript.write_g1(v);
         let r = transcript.read();
+        transcript.write(s_u + r * a.0);
+        transcript.write(s_v + r * c);
         secret.into_iter().zip(a.1.iter()).for_each(|(s, a)| {
             transcript.write(s + r * a);
         });
-        transcript.write(s_b + r * a.0);
-        transcript.write(s_d + r * c);
     }
 
     // Verify that c = a . b.
@@ -188,22 +186,18 @@ impl PedersenCommitter {
         b: &[Fr],
         c: G1Affine,
     ) -> Result<(), Error> {
-        let cb = transcript.read_g1();
-        let cd = transcript.read_g1();
+        let u = transcript.read_g1();
+        let v = transcript.read_g1();
         let r = transcript.generate();
+        let z_u = transcript.read();
+        let z_v = transcript.read();
         let z: Vec<Fr> = (0..b.len()).map(|_| transcript.read()).collect();
-        let z_b = transcript.read();
-        let z_d = transcript.read();
-
-        let secret_dot = z.iter().zip(b.iter()).map(|(z, b)| z * b).sum();
-        let lhs = cb + c * r;
-        let rhs = self.compute_commitment(z_b, &[secret_dot]);
-        if lhs != rhs {
-            panic!();
+        if u + a * r != self.compute_commitment(z_u, &z) {
             return Err(Error::PedersenVerificationFailed);
         }
-        let lhs = cd + a * r;
-        let rhs = self.compute_commitment(z_d, &z);
+        let secret_dot = z.iter().zip(b.iter()).map(|(z, b)| z * b).sum();
+        let lhs = v + c * r;
+        let rhs = self.compute_commitment(z_v, &[secret_dot]);
         if lhs != rhs {
             panic!();
             return Err(Error::PedersenVerificationFailed);
@@ -301,7 +295,7 @@ mod test {
         transcript.write_g1(ca);
         let (sc, cc) = committer.commit(&mut rng, &[c]);
         transcript.write_g1(cc);
-        committer.proof_dot_product(&mut rng, &mut transcript, (sa, &a), sc);
+        committer.proof_dot_product(&mut rng, &mut transcript, (sa, &a), &b, sc);
         let proof = transcript.finish();
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
