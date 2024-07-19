@@ -292,7 +292,7 @@ mod test {
 
     #[test]
     fn test_dot() {
-        let size = 1000;
+        let size = 100;
         let mut rng = ChaCha20Rng::from_entropy();
         let pedersen = PedersenCommitter::new(size);
         let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();

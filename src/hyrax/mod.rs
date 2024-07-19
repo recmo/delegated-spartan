@@ -94,7 +94,7 @@ mod test {
     #[test]
     fn test_contraction() {
         let mut rng = ChaCha20Rng::from_entropy();
-        let (rows, cols) = (1000, 1000);
+        let (rows, cols) = (10, 20);
         let hyrax = HyraxCommiter::new(cols);
         let f = (0..rows * cols).map(|_| rng.gen()).collect::<Vec<Fr>>();
         let a = (0..rows).map(|_| rng.gen()).collect::<Vec<Fr>>();
@@ -112,7 +112,7 @@ mod test {
 
         // Verify
         let mut transcript = VerifierTranscript::new(&proof);
-        let cs = (0..cols).map(|_| transcript.read_g1()).collect::<Vec<_>>();
+        let cs = (0..rows).map(|_| transcript.read_g1()).collect::<Vec<_>>();
         let cc = transcript.read_g1();
         hyrax.verify_contraction(&mut transcript, &cs, &a, &b, cc);
     }

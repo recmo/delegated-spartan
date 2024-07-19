@@ -1,7 +1,10 @@
 use {
     ark_bn254::Fr,
     criterion::{black_box, criterion_group, criterion_main, Criterion},
-    delegated_spartan::mle::{eval_mle, par_eval_mle},
+    delegated_spartan::{
+        mle::{eval_mle, par_eval_mle, prove_sumcheck},
+        ProverTranscript,
+    },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
 };
@@ -24,5 +27,23 @@ fn bench_par_eval_mle(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, bench_eval_mle, bench_par_eval_mle);
+fn bench_prove_sumcheck(c: &mut Criterion) {
+    const SIZE: usize = 20;
+    let mut rng = ChaCha20Rng::from_entropy();
+    let mut f = (0..1 << SIZE).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
+    c.bench_function("prove_sumcheck", |b| {
+        b.iter(|| {
+            let mut transcript = ProverTranscript::new();
+            prove_sumcheck(&mut transcript, &mut f, SIZE);
+            transcript.finish()
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    bench_eval_mle,
+    bench_par_eval_mle,
+    bench_prove_sumcheck
+);
 criterion_main!(benches);
