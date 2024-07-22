@@ -17,6 +17,7 @@ rayon = "1.10.0"
 thiserror = "1.0.63"
 tracing = "0.1.40"
 tracing-indicatif = "0.3.6"
+itertools = "0.13.0"
 
 [profile.release]
 debug = true # Generate symbol info for profiling
