@@ -56,20 +56,23 @@ pub fn prove_sumcheck(
     assert_eq!(f.len(), 1 << size);
     let mut rs = Vec::with_capacity(size);
     for _ in 0..size {
-        // Compute $p(x) = \sum_y f(x, y) = eq(x, 0) \sum_y f(0, y) + eq(x, 1) \sum_y f(1, y)$
-        // Send p(x) = p0 + p1 ⋅ x to verifier
+        // p(x) = p0 + p1 ⋅ x
+        // Evaluation at 0
         let p0: Fr = f.iter().take(f.len() / 2).sum();
+        // Compute p1 from
+        // p(0) + p(1) = p0 + p0 + p1
         let p1 = sum - p0 - p0;
+        assert_eq!(p0 + p0 + p1, sum);
         transcript.write(p1);
         let r = transcript.read();
         rs.push(r);
-
-        // TODO: Fold update with sum computation.
+        // TODO: Fold update into evaluation loop.
         f = update(f, r);
-        // sum = p(r) = eq(r, 0) \sum_y f(0, y) + eq(r, 1) \sum_y f(1, y)
+        // sum = p(r)
         sum = p0 + r * p1;
     }
-    (f[0], rs)
+    assert_eq!(f[0], sum);
+    (sum, rs)
 }
 
 /// Prove sumcheck for $\sum_x f(x) ⋅ g(x)$.
@@ -99,18 +102,21 @@ pub fn prove_sumcheck_product(
                 // Evaluation at ∞
                 p2 += (f1 - f0) * (g1 - g0);
             });
-        // sum = p(0) + p(1) = 2 ⋅ p0 + p1 + p2
+        // Compute p1 from
+        // p(0) + p(1) = p0 + p0 + p1 + p2
         let p1 = sum - p0 - p0 - p2;
-        // transcript.write(p0);
+        assert_eq!(p0 + p0 + p1 + p2, sum);
         transcript.write(p1);
         transcript.write(p2);
         let r = transcript.read();
         rs.push(r);
+        // TODO: Fold update into evaluation loop.
         f = update(f, r);
         g = update(g, r);
         // sum = p(r)
         sum = p0 + r * (p1 + r * p2);
     }
+    assert_eq!(f[0] * g[0], sum);
     (sum, rs)
 }
 
@@ -133,7 +139,7 @@ pub fn prove_sumcheck_r1cs(
     for _ in 0..size {
         // p(x) = p0 + p1 ⋅ x + p2 ⋅ x^2 + p3 ⋅ x^3
         let mut p0 = Fr::zero();
-        let mut p2 = Fr::zero();
+        let mut pem1 = Fr::zero();
         let mut p3 = Fr::zero();
         let (e0, e1) = e.split_at(e.len() / 2);
         let (a0, a1) = a.split_at(a.len() / 2);
@@ -149,24 +155,30 @@ pub fn prove_sumcheck_r1cs(
             // Evaluation at 0
             p0 += *e.0 * (a.0 * b.0 - c.0);
             // Evaluation at -1
-            p2 += (e.0 + e.0 - e.1) * ((a.0 + a.0 - a.1) * (b.0 + b.0 - b.1) - (c.0 + c.0 - c.1));
+            pem1 += (e.0 + e.0 - e.1) * ((a.0 + a.0 - a.1) * (b.0 + b.0 - b.1) - (c.0 + c.0 - c.1));
             // Evaluation at ∞
             p3 += (e.1 - e.0) * (a.1 - a.0) * (b.1 - b.0);
         });
-        // p(-1)             =     p0 - p1 + p2 - p3
-        // sum = p(0) + p(1) = 2 ⋅ p0 + p1 + p2 + p3
-        let p1 = sum - p0 - p0 - p2 - p3;
+        // Compute p1 and p2 from
+        //  p(0) + p(1) = 2 ⋅ p0 + p1 + p2 + p3
+        //  p(-1) = p0 - p1 + p2 - p3
+        let p2 = HALF * (sum + pem1 - p0 - p0 - p0);
+        let p1 = sum - p0 - p0 - p3 - p2;
+        assert_eq!(p0 + p0 + p1 + p2 + p3, sum);
         transcript.write(p1);
         transcript.write(p2);
+        transcript.write(p3);
         let r = transcript.read();
         rs.push(r);
+        // TODO: Fold update into evaluation loop.
         e = update(e, r);
         a = update(a, r);
         b = update(b, r);
         c = update(c, r);
         // sum = p(r)
-        sum = p0 + r * (p1 + r * p2);
+        sum = p0 + r * (p1 + r * (p2 + r * p3));
     }
+    assert_eq!(e[0] * (a[0] * b[0] - c[0]), sum);
     (sum, rs)
 }
 
@@ -200,6 +212,7 @@ mod test {
     use {
         super::*,
         ark_ff::Field,
+        itertools::izip,
         rand::{Rng, SeedableRng},
         rand_chacha::ChaCha20Rng,
     };
@@ -278,5 +291,42 @@ mod test {
         let (ve, vrs) = verify_sumcheck::<2>(&mut transcript, size, s);
         assert_eq!(ve, e);
         assert_eq!(vrs, rs);
+    }
+
+    #[test]
+    fn test_sumcheck_r1cs() {
+        let size = 10;
+        let mut rng = ChaCha20Rng::from_entropy();
+        let e = (0..1 << size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let a = (0..1 << size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let b = (0..1 << size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let c = (0..1 << size).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let s = izip!(&e, &a, &b, &c)
+            .map(|(&e, &a, &b, &c)| e * (a * b - c))
+            .sum();
+
+        // Prove
+        let mut transcript = ProverTranscript::new();
+        transcript.write(s);
+        let mut ec = e.clone();
+        let mut ac = a.clone();
+        let mut bc = b.clone();
+        let mut cc = c.clone();
+        let (pe, prs) =
+            prove_sumcheck_r1cs(&mut transcript, size, &mut ec, &mut ac, &mut bc, &mut cc, s);
+        assert_eq!(
+            eval_mle(&e, &prs) * (eval_mle(&a, &prs) * eval_mle(&b, &prs) - eval_mle(&c, &prs)),
+            pe
+        );
+        let proof = transcript.finish();
+        dbg!(proof.len() * std::mem::size_of::<Fr>());
+
+        // Verify
+        let mut transcript = VerifierTranscript::new(&proof);
+        let vs = transcript.read();
+        assert_eq!(vs, s);
+        let (ve, vrs) = verify_sumcheck::<3>(&mut transcript, size, s);
+        assert_eq!(ve, pe);
+        assert_eq!(vrs, prs);
     }
 }
