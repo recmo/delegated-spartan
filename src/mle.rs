@@ -1,7 +1,7 @@
 use {
-    crate::{transcript, ProverTranscript, VerifierTranscript},
+    crate::{ProverTranscript, VerifierTranscript},
     ark_bn254::Fr,
-    ark_ff::{Field, MontFp, One, Zero},
+    ark_ff::{MontFp, One, Zero},
     itertools::izip,
     rayon,
     std::array,
@@ -58,9 +58,8 @@ pub fn prove_sumcheck(
     for _ in 0..size {
         // Compute $p(x) = \sum_y f(x, y) = eq(x, 0) \sum_y f(0, y) + eq(x, 1) \sum_y f(1, y)$
         // Send p(x) = p0 + p1 ⋅ x to verifier
-        let p0 = f.iter().take(f.len() / 2).sum();
+        let p0: Fr = f.iter().take(f.len() / 2).sum();
         let p1 = sum - p0 - p0;
-        transcript.write(p0);
         transcript.write(p1);
         let r = transcript.read();
         rs.push(r);
@@ -102,7 +101,7 @@ pub fn prove_sumcheck_product(
             });
         // sum = p(0) + p(1) = 2 ⋅ p0 + p1 + p2
         let p1 = sum - p0 - p0 - p2;
-        transcript.write(p0);
+        // transcript.write(p0);
         transcript.write(p1);
         transcript.write(p2);
         let r = transcript.read();
@@ -157,7 +156,6 @@ pub fn prove_sumcheck_r1cs(
         // p(-1)             =     p0 - p1 + p2 - p3
         // sum = p(0) + p(1) = 2 ⋅ p0 + p1 + p2 + p3
         let p1 = sum - p0 - p0 - p2 - p3;
-        transcript.write(p0);
         transcript.write(p1);
         transcript.write(p2);
         let r = transcript.read();
@@ -172,28 +170,27 @@ pub fn prove_sumcheck_r1cs(
     (sum, rs)
 }
 
-/// Verify sumcheck for $N$-term polynomials.
-/// I.e. N = 2 for linear, 3 for quadratic, etc.
+/// Verify sumcheck for $N$-degree polynomials.
+/// I.e. N = 1 for linear, 2 for quadratic, etc.
 pub fn verify_sumcheck<const N: usize>(
     transcript: &mut VerifierTranscript,
     size: usize,
     mut e: Fr,
 ) -> (Fr, Vec<Fr>) {
     let mut rs = Vec::with_capacity(size);
-    for i in 0..size {
+    for _ in 0..size {
         let p: [Fr; N] = array::from_fn(|_| transcript.read());
-        // Check p'(r) = p(0) + p(1)
-        if e != p[0] + p.iter().sum::<Fr>() {
-            panic!("Sumcheck failed at step {i}");
-        }
-        assert_eq!(p[0], e - p.iter().sum::<Fr>());
+        // Derive p0 from e = p(0) + p(1)
+        let p0 = HALF * (e - p.iter().sum::<Fr>());
         let r = transcript.generate();
         rs.push(r);
-        e = p
-            .into_iter()
-            .rev()
-            .reduce(|acc, p| p + r * acc)
-            .expect("p not empty");
+        // p(r) = p0 + p[0] ⋅ r + p[1] ⋅ r^2 + ...
+        e = p0
+            + r * p
+                .into_iter()
+                .rev()
+                .reduce(|acc, p| p + r * acc)
+                .expect("p not empty");
     }
     (e, rs)
 }
@@ -202,13 +199,14 @@ pub fn verify_sumcheck<const N: usize>(
 mod test {
     use {
         super::*,
+        ark_ff::Field,
         rand::{Rng, SeedableRng},
         rand_chacha::ChaCha20Rng,
     };
 
     #[test]
     fn test_half() {
-        assert_eq!(HALF.double(), Fr::ONE);
+        assert_eq!(HALF.double(), Fr::one());
     }
 
     #[test]
@@ -251,7 +249,7 @@ mod test {
         // Verify
         let mut transcript = VerifierTranscript::new(&proof);
         let e = transcript.read();
-        let (e, rs) = verify_sumcheck::<2>(&mut transcript, size, e);
+        let (e, rs) = verify_sumcheck::<1>(&mut transcript, size, e);
         assert_eq!(eval_mle(&f, &rs), e);
     }
 
@@ -277,7 +275,7 @@ mod test {
         let mut transcript = VerifierTranscript::new(&proof);
         let vs = transcript.read();
         assert_eq!(vs, s);
-        let (ve, vrs) = verify_sumcheck::<3>(&mut transcript, size, s);
+        let (ve, vrs) = verify_sumcheck::<2>(&mut transcript, size, s);
         assert_eq!(ve, e);
         assert_eq!(vrs, rs);
     }
