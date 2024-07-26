@@ -1,4 +1,5 @@
 mod poseidon;
+pub mod poseidon2;
 mod sponge;
 
 use {

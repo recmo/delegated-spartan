@@ -1,3 +1,6 @@
+// TODO: Substitute Poseidon2
+// https://github.com/HorizenLabs/poseidon2/blob/bb476b9ca38198cf5092487283c8b8c5d4317c4e/plain_implementations/src/poseidon2/poseidon2_instance_bn256.rs
+
 mod constants;
 
 use {

@@ -4,20 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-rand = "0.8.5"
 ark-bn254 = { version = "0.4.0", features = ["std"] }
-rand_chacha = { version = "0.3.1", features = ["simd"] }
-bincode = "1.3.3"
-ark-crypto-primitives = { version = "0.4.0", features = ["sponge"] }
-num-traits = "0.2.19"
-ark-ff = { version = "0.4.2", features = ["asm", "std"] }
-hex-literal = "0.4.1"
 ark-ec = { version = "0.4.2", features = ["std"] }
+ark-ff = { version = "0.4.2", features = ["asm", "std"] }
+ark-poly = "0.4.2"
+rand = "0.8.5"
+rand_chacha = { version = "0.3.1", features = ["simd"] }
 rayon = "1.10.0"
 thiserror = "1.0.63"
 tracing = "0.1.40"
 tracing-indicatif = "0.3.6"
 itertools = "0.13.0"
+
+[dev-dependencies]
+criterion = { version = "0.5" }
+hex = "0.4.3"
 
 [profile.release]
 debug = true # Generate symbol info for profiling
@@ -29,10 +30,6 @@ opt-level = 2
 # Compilation profile for any non-workspace member.
 [profile.dev.package."*"]
 opt-level = 3
-
-[dev-dependencies]
-criterion = { version = "0.4", features = ["html_reports"] }
-hex = "0.4.3"
 
 [[bench]]
 name = "poseidon"
