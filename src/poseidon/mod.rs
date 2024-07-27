@@ -92,14 +92,6 @@ pub fn permute_16(state: &mut [Fr; 16]) {
     for rc in RC16.1 {
         state[0] += rc;
         state[0] *= state[0].square().square_in_place();
-
-        // Matmul partial: ones(N, N) + diag(MAT_DIAG16)
-        // TODO: This one is also more expensive than mat_full_16!
-        // let sum: Fr = state.iter().sum();
-        // state.iter_mut().zip(MAT_DIAG16).for_each(|(s, d)| {
-        //     *s *= d;
-        //     *s += sum;
-        // });
         mat_partial_16(state);
     }
     for rc in RC16.2 {
