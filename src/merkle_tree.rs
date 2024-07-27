@@ -8,7 +8,10 @@ use {
     std::{array, iter::repeat},
 };
 
-// Compute 16-ary merkle tree over given leaves.
+// TODO: Determine optimal arity for proof-size / verifier complexity trade-off.
+const ARITY: usize = 16;
+
+// Compute Merkle tree over given leaves.
 pub fn merkle_tree(leaves: Vec<Fr>) -> Vec<Vec<Fr>> {
     let mut tree: Vec<Vec<Fr>> = vec![leaves];
     loop {
@@ -16,7 +19,7 @@ pub fn merkle_tree(leaves: Vec<Fr>) -> Vec<Vec<Fr>> {
         if leaves.len() == 1 {
             break;
         }
-        let layer = leaves.chunks(16).map(compress).collect();
+        let layer = leaves.chunks(ARITY).map(compress).collect();
         tree.push(layer);
     }
     tree
@@ -27,35 +30,36 @@ pub fn prove(transcript: &mut Prover, tree: &[Vec<Fr>], mut index: usize) {
         if layer.len() == 1 {
             break;
         }
-        let family = layer.chunks(16).nth(index / 16).unwrap_or_default();
-        if family.len() < index % 16 {
+        let family = layer.chunks(ARITY).nth(index / ARITY).unwrap_or_default();
+        if family.len() < index % ARITY {
             panic!("Invalid index");
         }
-        // Zero-pad the family to 16 elements and reveal siblings.
-        let family = family.iter().copied().chain(repeat(Fr::ZERO)).take(16);
-        let siblings = family.enumerate().filter(|(i, _)| *i != index % 16);
+        // Zero-pad the family and reveal siblings.
+        let family = family.iter().copied().chain(repeat(Fr::ZERO)).take(ARITY);
+        let siblings = family.enumerate().filter(|(i, _)| *i != index % ARITY);
         siblings.for_each(|(_, sibling)| transcript.reveal(sibling));
-        index /= 16;
+        index /= ARITY;
     }
 }
 
 pub fn verify(transcript: &mut Verifier, root: Fr, mut index: usize, mut leaf: Fr) {
+    // TODO: Maybe pass tree size so we can terminate early on failure.
     while leaf != root {
-        let family: [Fr; 16] = array::from_fn(|i| {
-            if i == index % 16 {
+        let family: [Fr; ARITY] = array::from_fn(|i| {
+            if i == index % ARITY {
                 leaf
             } else {
                 transcript.reveal()
             }
         });
         leaf = compress(&family);
-        index /= 16;
+        index /= ARITY;
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use {super::*, std::mem::size_of};
 
     #[test]
     fn test_merkle_tree_10000() {
@@ -63,6 +67,7 @@ mod test {
         let index = 5123;
         let leaf = leafs[index];
 
+        // Proof
         let mut transcript = Prover::new();
         let tree = merkle_tree(leafs);
         let root = *tree.last().unwrap().first().unwrap();
@@ -70,8 +75,9 @@ mod test {
         transcript.write(leaf);
         prove(&mut transcript, &tree, index);
         let proof = transcript.finish();
-        dbg!(proof.len() * std::mem::size_of::<Fr>());
+        dbg!(proof.len() * size_of::<Fr>());
 
+        // Verify
         let mut transcript = Verifier::new(&proof);
         let vroot = transcript.read();
         let vleaf = transcript.read();
