@@ -5,7 +5,7 @@ use {
     },
     ark_bn254::Fr,
     ark_ff::Field,
-    std::iter::repeat,
+    std::{array, iter::repeat},
 };
 
 // Compute 16-ary merkle tree over given leaves.
@@ -39,4 +39,42 @@ pub fn prove(transcript: &mut Prover, tree: &[Vec<Fr>], mut index: usize) {
     }
 }
 
-pub fn verify(_transcript: &mut Verifier, _leaves: Fr, _index: usize, _root: &[Fr]) {}
+pub fn verify(transcript: &mut Verifier, root: Fr, mut index: usize, mut leaf: Fr) {
+    while leaf != root {
+        let family: [Fr; 16] = array::from_fn(|i| {
+            if i == index % 16 {
+                leaf
+            } else {
+                transcript.reveal()
+            }
+        });
+        leaf = compress(&family);
+        index /= 16;
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_merkle_tree_10000() {
+        let leafs: Vec<_> = (0..10_000).map(Fr::from).collect();
+        let index = 5123;
+        let leaf = leafs[index];
+
+        let mut transcript = Prover::new();
+        let tree = merkle_tree(leafs);
+        let root = *tree.last().unwrap().first().unwrap();
+        transcript.write(root);
+        transcript.write(leaf);
+        prove(&mut transcript, &tree, index);
+        let proof = transcript.finish();
+        dbg!(proof.len() * std::mem::size_of::<Fr>());
+
+        let mut transcript = Verifier::new(&proof);
+        let vroot = transcript.read();
+        let vleaf = transcript.read();
+        verify(&mut transcript, vroot, index, vleaf);
+    }
+}

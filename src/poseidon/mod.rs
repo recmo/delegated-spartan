@@ -78,6 +78,7 @@ pub fn permute_3(state: &mut [Fr; 3]) {
     }
 }
 
+// OPT: Time spend: 53% in `mat_partial_16`, 31% in x^5, 11% in `mat_full_16`.
 pub fn permute_16(state: &mut [Fr; 16]) {
     mat_full_16(state);
     for rc in RC16.0 {
@@ -138,7 +139,13 @@ pub fn mat_full_16(state: &mut [Fr; 16]) {
     });
 }
 
-// Ones + Diag [-8, -7, -6, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 8, 9]
+/// Computes a 16x16 partial matrix.
+/// These are not MDS, but meet requirements set out in Poseidon2 paper.
+/// Ones + Diag [-8, -7, -6, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 8, 9]
+// OPT: This would benefit from delayed reduction. If we do this using
+// additional bits in each limb, say base 2^43 over [u64; 6], we can do
+// ~six rounds before needing to propagate carries and reductions. These
+// can then be done in SIMD.
 pub fn mat_partial_16(state: &mut [Fr; 16]) {
     let sum: Fr = state.iter().sum();
 

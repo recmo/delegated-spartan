@@ -6,7 +6,7 @@ use {
 };
 
 fn bench_poseidon(c: &mut Criterion) {
-    let mut group = c.benchmark_group("poseidon2");
+    let mut group = c.benchmark_group("poseidon");
 
     let mut state: [Fr; 3] = array::from_fn(|i| Fr::from(i as u64));
     group.throughput(Throughput::Elements(3));
