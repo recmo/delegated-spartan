@@ -1,7 +1,7 @@
 use {
     ark_bn254::{Fr, G1Affine, G1Projective},
     ark_ec::scalar_mul::{fixed_base::FixedBase, variable_base::VariableBaseMSM},
-    criterion::{black_box, criterion_group, criterion_main, Criterion},
+    criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput},
     delegated_spartan::hyrax::pedersen::PedersenCommitter,
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -23,6 +23,17 @@ fn bench_pedersen_commit(c: &mut Criterion) {
     c.bench_function("pedersen_commit", |b| {
         b.iter(|| commiter.commit(&mut rng, black_box(&scalars)))
     });
+
+    let mut rng = ChaCha20Rng::from_entropy();
+    let mut group = c.benchmark_group("pedersen");
+    let commiter = PedersenCommitter::new(10_000);
+    for size in [100, 1000, 1024, 2048, 4096, 10_000] {
+        let input: Vec<Fr> = (0_u64..size).map(|_| rng.gen()).collect();
+        group.throughput(Throughput::Elements(size));
+        group.bench_function(BenchmarkId::new("commit", size), |b| {
+            b.iter(|| commiter.commit(&mut rng, black_box(&input)))
+        });
+    }
 }
 
 fn ref_wnaf(c: &mut Criterion) {

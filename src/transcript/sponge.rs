@@ -1,4 +1,4 @@
-use {super::poseidon_permute, ark_bn254::Fr, ark_ff::MontFp};
+use {crate::poseidon, ark_bn254::Fr, ark_ff::MontFp};
 
 // Random initial state (nothing up my sleeve: digits of 2 * pi in groups of 77 digits)
 const INITIAL_STATE: [Fr; 3] = [
@@ -39,7 +39,7 @@ impl Sponge {
                 self.sponge = SpongeState::Full;
             }
             SpongeState::Full | SpongeState::Squeezing => {
-                poseidon_permute(&mut self.state);
+                poseidon::permute_3(&mut self.state);
                 self.state[0] += value;
                 self.sponge = SpongeState::Absorbing;
             }
@@ -57,10 +57,16 @@ impl Sponge {
                 self.state[1]
             }
             SpongeState::Full | SpongeState::Absorbing => {
-                poseidon_permute(&mut self.state);
+                poseidon::permute_3(&mut self.state);
                 self.sponge = SpongeState::Squeezing;
                 self.state[0]
             }
         }
+    }
+}
+
+impl Default for Sponge {
+    fn default() -> Self {
+        Sponge::new()
     }
 }

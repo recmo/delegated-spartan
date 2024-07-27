@@ -3,7 +3,7 @@ use {
     criterion::{black_box, criterion_group, criterion_main, Criterion},
     delegated_spartan::{
         mle::{eval_mle, par_eval_mle, prove_sumcheck},
-        ProverTranscript,
+        Prover,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -33,7 +33,7 @@ fn bench_prove_sumcheck(c: &mut Criterion) {
     let mut f = (0..1 << SIZE).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
     c.bench_function("prove_sumcheck", |b| {
         b.iter(|| {
-            let mut transcript = ProverTranscript::new();
+            let mut transcript = Prover::new();
             prove_sumcheck(&mut transcript, &mut f, SIZE);
             transcript.finish()
         })

@@ -1,25 +1,23 @@
-mod poseidon;
-pub mod poseidon2;
 mod sponge;
 
+pub use sponge::Sponge;
 use {
     ark_bn254::{Fq, Fr, G1Affine},
     ark_ec::AffineRepr,
     ark_ff::PrimeField,
 };
-pub use {poseidon::poseidon_permute, sponge::Sponge};
 
-pub struct ProverTranscript {
+pub struct Prover {
     sponge: Sponge,
     proof: Vec<Fr>,
 }
 
-pub struct VerifierTranscript<'a> {
+pub struct Verifier<'a> {
     sponge: Sponge,
     proof: &'a [Fr],
 }
 
-impl ProverTranscript {
+impl Prover {
     pub fn new() -> Self {
         Self {
             sponge: Sponge::new(),
@@ -53,9 +51,15 @@ impl ProverTranscript {
         self.write_fp(*x);
         self.write_fp(*y);
     }
+
+    // Reveal a value to the verifier, but do hash it into the transcript.
+    // This is useful for decommitting values.
+    pub fn reveal(&mut self, value: Fr) {
+        self.proof.push(value);
+    }
 }
 
-impl<'a> VerifierTranscript<'a> {
+impl<'a> Verifier<'a> {
     pub fn new(proof: &'a [Fr]) -> Self {
         Self {
             sponge: Sponge::new(),
@@ -68,13 +72,9 @@ impl<'a> VerifierTranscript<'a> {
     }
 
     pub fn read(&mut self) -> Fr {
-        let (value, tail) = self
-            .proof
-            .split_first()
-            .expect("Ran out of proof elements.");
-        self.proof = tail;
-        self.sponge.absorb(*value);
-        *value
+        let value = self.reveal();
+        self.sponge.absorb(value);
+        value
     }
 
     pub fn read_fq(&mut self) -> Fq {
@@ -89,5 +89,14 @@ impl<'a> VerifierTranscript<'a> {
         assert!(g1.is_on_curve());
         assert!(g1.is_in_correct_subgroup_assuming_on_curve());
         g1
+    }
+
+    pub fn reveal(&mut self) -> Fr {
+        let (value, tail) = self
+            .proof
+            .split_first()
+            .expect("Ran out of proof elements.");
+        self.proof = tail;
+        *value
     }
 }

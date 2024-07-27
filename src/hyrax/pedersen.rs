@@ -1,5 +1,5 @@
 use {
-    crate::{ProverTranscript, VerifierTranscript},
+    crate::{Prover, Verifier},
     ark_bn254::{Fr, G1Affine, G1Projective},
     ark_ec::VariableBaseMSM,
     rand::{Rng, SeedableRng},
@@ -55,7 +55,7 @@ impl PedersenCommitter {
     pub fn batch_commit(
         &self,
         rng: &mut impl Rng,
-        transcript: &mut ProverTranscript,
+        transcript: &mut Prover,
         values: &[Fr],
     ) -> Vec<Fr> {
         assert!(
@@ -86,7 +86,7 @@ impl PedersenCommitter {
     // Prove that two values are equal.
     // Only the secrets are required.
     // **Warning** This does not verify the vector lentghs and they are implicitely zero padded.
-    pub fn prove_equal(&self, rng: &mut impl Rng, transcript: &mut ProverTranscript, a: Fr, b: Fr) {
+    pub fn prove_equal(&self, rng: &mut impl Rng, transcript: &mut Prover, a: Fr, b: Fr) {
         let (s, c) = self.commit(rng, &[]);
         transcript.write_g1(c);
         let r = transcript.read();
@@ -96,7 +96,7 @@ impl PedersenCommitter {
 
     pub fn verify_equal(
         &self,
-        transcript: &mut VerifierTranscript,
+        transcript: &mut Verifier,
         a: G1Affine,
         b: G1Affine,
     ) -> Result<(), Error> {
@@ -115,7 +115,7 @@ impl PedersenCommitter {
     pub fn prove_product(
         &self,
         rng: &mut impl Rng,
-        transcript: &mut ProverTranscript,
+        transcript: &mut Prover,
         a: (Fr, G1Affine, Fr),
         b: (Fr, Fr),
         c: Fr,
@@ -138,7 +138,7 @@ impl PedersenCommitter {
 
     pub fn verify_product(
         &self,
-        transcript: &mut VerifierTranscript,
+        transcript: &mut Verifier,
         ca: G1Affine,
         cb: G1Affine,
         cc: G1Affine,
@@ -170,7 +170,7 @@ impl PedersenCommitter {
     pub fn prove_dot_product(
         &self,
         rng: &mut impl Rng,
-        transcript: &mut ProverTranscript,
+        transcript: &mut Prover,
         a: (Fr, &[Fr]),
         b: &[Fr],
         c: Fr,
@@ -192,7 +192,7 @@ impl PedersenCommitter {
     // Verify that c = a . b.
     pub fn verify_dot_product(
         &self,
-        transcript: &mut VerifierTranscript,
+        transcript: &mut Verifier,
         a: G1Affine,
         b: &[Fr],
         c: G1Affine,
@@ -244,7 +244,7 @@ mod test {
         let a = (0..size).map(|_| rng.gen()).collect::<Vec<Fr>>();
 
         // Prove
-        let mut transcript = ProverTranscript::new();
+        let mut transcript = Prover::new();
         let (sa, ca) = pedersen.commit(&mut rng, &a);
         transcript.write_g1(ca);
         let (sb, cb) = pedersen.commit(&mut rng, &a);
@@ -254,7 +254,7 @@ mod test {
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
         // Verify
-        let mut transcript = VerifierTranscript::new(&proof);
+        let mut transcript = Verifier::new(&proof);
         let ca = transcript.read_g1();
         let cb = transcript.read_g1();
         pedersen.verify_equal(&mut transcript, ca, cb).unwrap();
@@ -269,7 +269,7 @@ mod test {
         let c = a * b;
 
         // Prove
-        let mut transcript = ProverTranscript::new();
+        let mut transcript = Prover::new();
         let (sa, ca) = pedersen.commit(&mut rng, &[a]);
         let (sb, cb) = pedersen.commit(&mut rng, &[b]);
         let (sc, cc) = pedersen.commit(&mut rng, &[c]);
@@ -281,7 +281,7 @@ mod test {
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
         // Verify
-        let mut transcript = VerifierTranscript::new(&proof);
+        let mut transcript = Verifier::new(&proof);
         let ca = transcript.read_g1();
         let cb = transcript.read_g1();
         let cc = transcript.read_g1();
@@ -300,7 +300,7 @@ mod test {
         let c = a.iter().zip(b.iter()).map(|(a, b)| a * b).sum();
 
         // Prove
-        let mut transcript = ProverTranscript::new();
+        let mut transcript = Prover::new();
         let (sa, ca) = pedersen.commit(&mut rng, &a);
         transcript.write_g1(ca);
         let (sc, cc) = pedersen.commit(&mut rng, &[c]);
@@ -310,7 +310,7 @@ mod test {
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
         // Verify
-        let mut transcript = VerifierTranscript::new(&proof);
+        let mut transcript = Verifier::new(&proof);
         let ca = transcript.read_g1();
         let cc = transcript.read_g1();
         pedersen

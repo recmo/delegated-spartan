@@ -2,7 +2,7 @@ pub mod contractions;
 pub mod pedersen;
 
 use {
-    crate::{ProverTranscript, VerifierTranscript},
+    crate::{Prover, Verifier},
     ark_bn254::{Fr, G1Affine, G1Projective},
     ark_ec::VariableBaseMSM,
     ark_ff::Zero,
@@ -31,19 +31,14 @@ impl HyraxCommiter {
         }
     }
 
-    pub fn commit(
-        &self,
-        rng: &mut impl Rng,
-        transcript: &mut ProverTranscript,
-        f: &[Fr],
-    ) -> Vec<Fr> {
+    pub fn commit(&self, rng: &mut impl Rng, transcript: &mut Prover, f: &[Fr]) -> Vec<Fr> {
         self.pedersen.batch_commit(rng, transcript, f)
     }
 
     pub fn proof_contraction(
         &self,
         rng: &mut impl Rng,
-        transcript: &mut ProverTranscript,
+        transcript: &mut Prover,
         f: (&[Fr], &[Fr]), // Secrets and values
         a: &[Fr],          // Values
         b: &[Fr],          // Values
@@ -69,7 +64,7 @@ impl HyraxCommiter {
 
     pub fn verify_contraction(
         &self,
-        transcript: &mut VerifierTranscript,
+        transcript: &mut Verifier,
         commitments: &[G1Affine],
         a: &[Fr],
         b: &[Fr],
@@ -102,7 +97,7 @@ mod test {
         let c = compute_contraction(&f, &a, &b);
 
         // Prove
-        let mut transcript = ProverTranscript::new();
+        let mut transcript = Prover::new();
         let s = hyrax.commit(&mut rng, &mut transcript, &f);
         let (sc, cc) = hyrax.pedersen.commit(&mut rng, &[c]);
         transcript.write_g1(cc);
@@ -111,7 +106,7 @@ mod test {
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
         // Verify
-        let mut transcript = VerifierTranscript::new(&proof);
+        let mut transcript = Verifier::new(&proof);
         let cs = (0..rows).map(|_| transcript.read_g1()).collect::<Vec<_>>();
         let cc = transcript.read_g1();
         hyrax.verify_contraction(&mut transcript, &cs, &a, &b, cc);

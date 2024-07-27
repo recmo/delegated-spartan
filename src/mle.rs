@@ -1,5 +1,5 @@
 use {
-    crate::{ProverTranscript, VerifierTranscript},
+    crate::{Prover, Verifier},
     ark_bn254::Fr,
     ark_ff::{MontFp, One, Zero},
     itertools::izip,
@@ -48,7 +48,7 @@ fn update(f: &mut [Fr], r: Fr) -> &mut [Fr] {
 // TODO: This is destructive on coefficients, but only overwrites first half.
 // We can restore the original requires n/2 space.
 pub fn prove_sumcheck(
-    transcript: &mut ProverTranscript,
+    transcript: &mut Prover,
     size: usize,
     mut f: &mut [Fr],
     mut sum: Fr,
@@ -78,7 +78,7 @@ pub fn prove_sumcheck(
 /// Prove sumcheck for $\sum_x f(x) ⋅ g(x)$.
 /// Returns $(e, r)$ for reduced claim $e = f(r)⋅ g(r)$.
 pub fn prove_sumcheck_product(
-    transcript: &mut ProverTranscript,
+    transcript: &mut Prover,
     size: usize,
     mut f: &mut [Fr],
     mut g: &mut [Fr],
@@ -123,7 +123,7 @@ pub fn prove_sumcheck_product(
 /// Sumcheck for $\sum_x e(x) ⋅ (a(x) ⋅ b(x) - c(x))$.
 /// Returns $(e, r)$ for reduced claim $e = e(r) ⋅ (a(r) ⋅ b(r) - c(r))$.
 pub fn prove_sumcheck_r1cs(
-    transcript: &mut ProverTranscript,
+    transcript: &mut Prover,
     size: usize,
     mut e: &mut [Fr],
     mut a: &mut [Fr],
@@ -185,7 +185,7 @@ pub fn prove_sumcheck_r1cs(
 /// Verify sumcheck for $N$-degree polynomials.
 /// I.e. N = 1 for linear, 2 for quadratic, etc.
 pub fn verify_sumcheck<const N: usize>(
-    transcript: &mut VerifierTranscript,
+    transcript: &mut Verifier,
     size: usize,
     mut e: Fr,
 ) -> (Fr, Vec<Fr>) {
@@ -251,7 +251,7 @@ mod test {
         let s = f.iter().sum();
 
         // Prove
-        let mut transcript = ProverTranscript::new();
+        let mut transcript = Prover::new();
         transcript.write(s);
         let mut copy = f.clone();
         let (e, rs) = prove_sumcheck(&mut transcript, size, &mut copy, s);
@@ -260,7 +260,7 @@ mod test {
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
         // Verify
-        let mut transcript = VerifierTranscript::new(&proof);
+        let mut transcript = Verifier::new(&proof);
         let e = transcript.read();
         let (e, rs) = verify_sumcheck::<1>(&mut transcript, size, e);
         assert_eq!(eval_mle(&f, &rs), e);
@@ -275,7 +275,7 @@ mod test {
         let s = f.iter().zip(g.iter()).map(|(f, g)| f * g).sum();
 
         // Prove
-        let mut transcript = ProverTranscript::new();
+        let mut transcript = Prover::new();
         transcript.write(s);
         let mut fc = f.clone();
         let mut gc = g.clone();
@@ -285,7 +285,7 @@ mod test {
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
         // Verify
-        let mut transcript = VerifierTranscript::new(&proof);
+        let mut transcript = Verifier::new(&proof);
         let vs = transcript.read();
         assert_eq!(vs, s);
         let (ve, vrs) = verify_sumcheck::<2>(&mut transcript, size, s);
@@ -306,7 +306,7 @@ mod test {
             .sum();
 
         // Prove
-        let mut transcript = ProverTranscript::new();
+        let mut transcript = Prover::new();
         transcript.write(s);
         let mut ec = e.clone();
         let mut ac = a.clone();
@@ -322,7 +322,7 @@ mod test {
         dbg!(proof.len() * std::mem::size_of::<Fr>());
 
         // Verify
-        let mut transcript = VerifierTranscript::new(&proof);
+        let mut transcript = Verifier::new(&proof);
         let vs = transcript.read();
         assert_eq!(vs, s);
         let (ve, vrs) = verify_sumcheck::<3>(&mut transcript, size, s);
