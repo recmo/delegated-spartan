@@ -8,9 +8,10 @@ use {
 /// Taking 5 as the generator of the multilicative group.
 const OMEGA_4_1: Fr =
     MontFp!("21888242871839275217838484774961031246007050428528088939761107053157389710902");
-const OMEGA_3_1: Fr = MontFp!("4407920970296243842393367215006156084916469457145843978461");
-const OMEGA_3_2: Fr =
-    MontFp!("21888242871839275217838484774961031246154997185409878258781734729429964517155");
+const HALF_OMEGA_3_1_PLUS_2: Fr =
+    MontFp!("10944121435919637611123202872628637544274182200208017171849102093287904247808");
+const HALF_OMEGA_3_1_MIN_2: Fr =
+    MontFp!("10944121435919637615531123842924881386667549415214173256765571550433748226270");
 const OMEGA_2415919104: Fr =
     MontFp!("8001236115608269688640730372558895144313937963023562728862538587154079436142");
 
@@ -66,13 +67,14 @@ fn ntt_batch_inner(values: &mut [Fr], roots: &[Fr], size: usize) {
         }
         3 => {
             for v in values.chunks_exact_mut(3) {
-                // Use Winograd's inner product trick.
-                // Or use Rader NTT.
-                (v[0], v[1], v[2]) = (
-                    v[0] + v[1] + v[2],
-                    v[0] + OMEGA_3_1 * v[1] + OMEGA_3_2 * v[2],
-                    v[0] + OMEGA_3_2 * v[1] + OMEGA_3_1 * v[2],
-                );
+                // Rader NTT:
+                let v0 = v[0];
+                (v[1], v[2]) = (v[1] + v[2], v[1] - v[2]);
+                v[0] += v[1];
+                v[1] *= HALF_OMEGA_3_1_PLUS_2;
+                v[2] *= HALF_OMEGA_3_1_MIN_2;
+                v[1] += v0;
+                (v[1], v[2]) = (v[1] + v[2], v[1] - v[2]);
             }
         }
         4 => {
@@ -212,8 +214,6 @@ mod test {
         }
         assert_eq!(root(2415919104).unwrap(), OMEGA_2415919104);
         assert_eq!(root(4).unwrap(), OMEGA_4_1);
-        assert_eq!(root(3).unwrap(), OMEGA_3_1);
-        assert_eq!(root(3).unwrap().square(), OMEGA_3_2);
     }
 
     #[test]
