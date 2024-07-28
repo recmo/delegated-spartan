@@ -13,6 +13,7 @@ const ARITY: usize = 16;
 
 // Compute Merkle tree over given leaves.
 pub fn merkle_tree(leaves: Vec<Fr>) -> Vec<Vec<Fr>> {
+    // TODO: Maybe flatten the tree to a single vector?
     let mut tree: Vec<Vec<Fr>> = vec![leaves];
     loop {
         let leaves = &tree.last().unwrap();

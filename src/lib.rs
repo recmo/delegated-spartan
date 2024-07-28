@@ -2,10 +2,14 @@ pub mod hyrax;
 pub mod ligero;
 pub mod merkle_tree;
 pub mod mle;
+mod ntt;
 pub mod poseidon;
 mod transcript;
 
-pub use transcript::{Prover, Sponge, Verifier};
+pub use crate::{
+    ntt::{intt, ntt},
+    transcript::{Prover, Sponge, Verifier},
+};
 use {ark_bn254::Fr, ark_ff::Zero, hyrax::HyraxCommiter, rand::Rng};
 
 pub fn prove_r1cs(
