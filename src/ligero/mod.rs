@@ -1,7 +1,4 @@
-use {
-    ark_bn254::Fr,
-    ark_poly::{EvaluationDomain, Radix2EvaluationDomain},
-};
+use ark_bn254::Fr;
 
 /// Reed-Solomon encoding
 /// Rate is `x.len()/e.len()`

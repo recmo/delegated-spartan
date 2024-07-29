@@ -8,11 +8,14 @@ use {
 fn bench_ntt(c: &mut Criterion) {
     let mut group = c.benchmark_group("ntt");
 
-    for size in [2, 3, 4, 16, 64, 256, 1024, 4096, 8192, 16384] {
+    for size in [2, 3, 4, 16, 64, 256, 1024, 3072, 4096, 8192, 16384] {
         let mut input: Vec<Fr> = (0_u64..size).map(Fr::from).collect();
         group.throughput(Throughput::Elements(size));
         group.bench_function(BenchmarkId::new("ntt", size), |b| {
             b.iter(|| ntt(&mut input))
+        });
+        group.bench_function(BenchmarkId::new("intt", size), |b| {
+            b.iter(|| intt(&mut input))
         });
     }
 }

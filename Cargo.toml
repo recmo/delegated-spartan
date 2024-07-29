@@ -7,7 +7,6 @@ edition = "2021"
 ark-bn254 = { version = "0.4.0", features = ["std"] }
 ark-ec = { version = "0.4.2", features = ["std"] }
 ark-ff = { version = "0.4.2", features = ["asm", "std"] }
-ark-poly = "0.4.2"
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", features = ["simd"] }
 rayon = "1.10.0"
@@ -17,6 +16,7 @@ tracing-indicatif = "0.3.6"
 itertools = "0.13.0"
 
 [dev-dependencies]
+ark-poly = "0.4.2"              # NTT Benchmark comparison.
 criterion = { version = "0.5" }
 hex = "0.4.3"
 
