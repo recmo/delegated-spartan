@@ -336,6 +336,7 @@ dependencies = [
  "criterion",
  "hex",
  "itertools 0.13.0",
+ "num-traits",
  "rand",
  "rand_chacha",
  "rayon",

@@ -17,6 +17,7 @@ itertools = "0.13.0"
 serde = { version = "1.0.204", features = ["derive"] }
 serde_json = "1.0.121"
 ark-serialize = "0.4.2"
+num-traits = "0.2.19"
 
 [dev-dependencies]
 ark-poly = "0.4.2"              # NTT Benchmark comparison.

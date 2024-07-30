@@ -33,7 +33,7 @@ impl LigeroCommitter {
         let queries =
             (security_bits / (1.0 - (1.0 + 1.0 / (expansion as f64)).log2())).ceil() as usize;
 
-        // Minimize proof length.
+        // Pick matrix aspect to minimize proof size.
         let rows = divisor_close_to(
             size,
             (2.0 * (size as f64) / (queries as f64)).sqrt() as usize,
@@ -44,11 +44,11 @@ impl LigeroCommitter {
         let code = expansion * cols;
         let combinations =
             1 + ((security_bits - 1.0) / (253.6 - (code as f64).log2())).floor() as usize;
-
         assert_eq!(
             combinations, 1,
             "Multiple combinations should not happen at this field size."
         );
+
         Self {
             rows,
             cols,
