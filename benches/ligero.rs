@@ -1,29 +1,61 @@
+mod utils;
+
 use {
+    self::utils::{human, time},
     ark_bn254::Fr,
-    criterion::{black_box, criterion_group, criterion_main, Criterion},
-    delegated_spartan::pcs::ligero::commit,
+    delegated_spartan::{
+        pcs::{hyrax::compute_contraction, ligero::LigeroCommitter},
+        poseidon,
+        transcript::Prover,
+    },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
-    std::time::Instant,
+    std::{hint::black_box, sync::atomic::Ordering},
 };
 
-fn bench_ligero_commit(c: &mut Criterion) {
-    const SIZE: usize = 1 << 20;
+fn main() {
     let mut rng = ChaCha20Rng::from_entropy();
-    let scalars = (0..SIZE).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
+    let mut transcript = Prover::new();
 
-    c.benchmark_group("dummy")
-        .sample_size(10)
-        .bench_function("ligero_commit", |b| {
-            b.iter_custom(|iters| {
-                let start = Instant::now();
-                for _ in 0..iters {
-                    commit(black_box(&scalars));
-                }
-                start.elapsed()
-            });
+    println!("Ligero commitment and opening:");
+    for size_log2 in 10..24 {
+        let size: usize = 1 << size_log2;
+
+        let committer = LigeroCommitter::new(128.0, size);
+        let f = (0..size).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
+        let a = (0..committer.rows).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let b = (0..committer.cols).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let c = compute_contraction(&f, &a, &b);
+        let mut num_hashes = (0, 0);
+
+        let duration = time({
+            let transcript = &mut transcript;
+            let num_hashes = &mut num_hashes;
+            || {
+                let before = (
+                    poseidon::COUNT_3.load(Ordering::SeqCst),
+                    poseidon::COUNT_16.load(Ordering::SeqCst),
+                );
+                transcript.proof.clear();
+                let s = committer.commit(transcript, black_box(&f));
+                transcript.write(c);
+                s.prove_contraction(transcript, &a, &b);
+                *num_hashes = (
+                    poseidon::COUNT_3.load(Ordering::SeqCst) - before.0,
+                    poseidon::COUNT_16.load(Ordering::SeqCst) - before.1,
+                );
+            }
         });
-}
+        let proof_size = transcript.proof.len() * size_of::<Fr>();
 
-criterion_group!(benches, bench_ligero_commit);
-criterion_main!(benches);
+        println!(
+            "size: 2^{size_log2} = {}𝔽, prover time: {}s, througput: {}𝔽/s, proof size: {}B, permute_3: {}, permute_16: {}",
+            human(size as f64),
+            human(duration),
+            human(size as f64 / duration),
+            human(proof_size as f64),
+            human(num_hashes.0 as f64),
+            human(num_hashes.1 as f64),
+        );
+    }
+}

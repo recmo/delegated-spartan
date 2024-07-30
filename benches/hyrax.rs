@@ -3,7 +3,10 @@ mod utils;
 use {
     self::utils::{human, time},
     ark_bn254::Fr,
-    delegated_spartan::{pcs::hyrax::HyraxCommiter, transcript::Prover},
+    delegated_spartan::{
+        pcs::hyrax::{compute_contraction, HyraxCommiter},
+        transcript::Prover,
+    },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
     std::hint::black_box,
@@ -16,17 +19,25 @@ fn main() {
     for size_log2 in 10..24 {
         let size: usize = 1 << size_log2;
         let cols = 1 << (size.ilog2() / 2);
+        let rows = size / cols;
         let hyrax = HyraxCommiter::new(cols);
-        let scalars = (0..size).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
+        let f = (0..size).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
+        let a = (0..rows).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let b = (0..cols).map(|_| rng.gen()).collect::<Vec<Fr>>();
+        let c = compute_contraction(&f, &a, &b);
         let transcript = &mut transcript;
 
         let duration = time(|| {
             transcript.proof.clear();
-            hyrax.commit(&mut rng, transcript, black_box(&scalars));
+            let s = hyrax.commit(&mut rng, transcript, black_box(&f));
+            let (sc, cc) = hyrax.pedersen.commit(&mut rng, &[c]);
+            transcript.write_g1(cc);
+            hyrax.proof_contraction(&mut rng, transcript, (&s, &f), &a, &b, sc);
         });
         let proof_size = transcript.proof.len() * size_of::<Fr>();
+
         println!(
-            "Hyrax commitment: size: 2^{size_log2} = {}𝔽, prover time: {}s, througput: {}𝔽/s, proof size: {}B",
+            "Hyrax commitment and opening: size: 2^{size_log2} = {}𝔽, prover time: {}s, througput: {}𝔽/s, proof size: {}B",
             human(size as f64),
             human(duration),
             human(size as f64 / duration),

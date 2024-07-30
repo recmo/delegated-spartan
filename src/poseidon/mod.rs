@@ -26,7 +26,11 @@ use {
     self::constants::{RC16, RC3},
     ark_bn254::Fr,
     ark_ff::Field,
+    std::sync::atomic::{AtomicU32, Ordering},
 };
+
+pub static COUNT_3: AtomicU32 = AtomicU32::new(0);
+pub static COUNT_16: AtomicU32 = AtomicU32::new(0);
 
 // Compress arbitrary length inputs.
 // Compute 16-arry Merkle tree over input.
@@ -52,6 +56,7 @@ pub fn compress(input: &[Fr]) -> Fr {
 }
 
 pub fn permute_3(state: &mut [Fr; 3]) {
+    COUNT_3.fetch_add(1, Ordering::Relaxed);
     mat_full_3(state);
     for rc in RC3.0 {
         state.iter_mut().zip(rc).for_each(|(x, rc)| *x += rc);
@@ -80,6 +85,7 @@ pub fn permute_3(state: &mut [Fr; 3]) {
 
 // OPT: Time spend: 53% in `mat_partial_16`, 31% in x^5, 11% in `mat_full_16`.
 pub fn permute_16(state: &mut [Fr; 16]) {
+    COUNT_16.fetch_add(1, Ordering::Relaxed);
     mat_full_16(state);
     for rc in RC16.0 {
         // TODO: Combine passes?

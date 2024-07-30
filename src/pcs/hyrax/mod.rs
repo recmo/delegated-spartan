@@ -20,7 +20,7 @@ pub fn compute_contraction(f: &[Fr], a: &[Fr], b: &[Fr]) -> Fr {
 }
 
 pub struct HyraxCommiter {
-    pedersen: PedersenCommitter,
+    pub pedersen: PedersenCommitter,
 }
 
 impl HyraxCommiter {
