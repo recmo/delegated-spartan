@@ -1,4 +1,3 @@
-pub mod contractions;
 pub mod pedersen;
 
 use {

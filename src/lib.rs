@@ -1,16 +1,18 @@
-pub mod hyrax;
-pub mod ligero;
 pub mod merkle_tree;
 pub mod mle;
-mod ntt;
+pub mod ntt;
+pub mod pcs;
 pub mod poseidon;
-mod transcript;
+pub mod reed_solomon;
+pub mod transcript;
 
-pub use crate::{
-    ntt::{intt, ntt},
-    transcript::{Prover, Sponge, Verifier},
+use {
+    crate::transcript::{Prover, Verifier},
+    ark_bn254::Fr,
+    ark_ff::Zero,
+    pcs::hyrax::HyraxCommiter,
+    rand::Rng,
 };
-use {ark_bn254::Fr, ark_ff::Zero, hyrax::HyraxCommiter, rand::Rng};
 
 pub fn prove_r1cs(
     rng: &mut impl Rng,

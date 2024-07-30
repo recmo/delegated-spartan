@@ -9,7 +9,7 @@ use {
 
 const SEED: [u8; 32] = *b"pedersen::PedersenCommitter::new";
 
-// ToDO: Better and completer error handling
+// TODO: Better and completer error handling
 pub struct PedersenCommitter {
     // Generators h, g_1, g_2, ..., g_n for the Pedersen commitment scheme.
     generators: Vec<G1Affine>,

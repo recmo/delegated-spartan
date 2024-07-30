@@ -3,7 +3,7 @@
 //! Fr^* is of order 2^28 * 3^2 * 13 * 29 * 983 * 11003 * 237073 * 405928799 * 1670836401704629 * 13818364434197438864469338081
 //! This NTT supports all divisors of 2^28 * 3^2 = 2415919104
 //! TODO: 13 = 2^2 * 3^1 + 1 is a good candidate for Rader NTT and could also be supported.
-//! See also https://github.com/recmo/goldilocks/blob/main/ntt/src/ntt/mod.rs
+//! See also https://github.com/recmo/goldilocks/blob/main/ntt/src/ntt
 use {
     ark_bn254::Fr,
     ark_ff::{Field, MontFp},
@@ -28,6 +28,9 @@ const OMEGA_2415919104: Fr =
 static ROOTS: RwLock<Vec<Fr>> = RwLock::new(Vec::new());
 
 pub fn ntt(values: &mut [Fr]) {
+    if 2_415_919_104 % values.len() != 0 {
+        panic!("NTT size must be a divisor of 2415919104");
+    }
     // Precompute more roots of unity if necessary.
     let roots = ROOTS.read().unwrap();
     let roots = if roots.is_empty() || roots.len() % values.len() != 0 {
@@ -145,7 +148,7 @@ fn ntt_batch_inner(values: &mut [Fr], roots: &[Fr], size: usize) {
     }
 }
 
-fn transpose<T: Copy>(matrix: &mut [T], rows: usize, cols: usize) {
+pub fn transpose<T: Copy>(matrix: &mut [T], rows: usize, cols: usize) {
     debug_assert_eq!(matrix.len(), rows * cols);
     if rows == cols {
         for i in 0..rows {

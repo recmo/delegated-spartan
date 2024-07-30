@@ -2,7 +2,7 @@ use {
     ark_bn254::Fr,
     ark_poly::{EvaluationDomain, Radix2EvaluationDomain},
     criterion::{criterion_group, criterion_main, BenchmarkId, Criterion, Throughput},
-    delegated_spartan::{intt, ntt},
+    delegated_spartan::ntt::{intt, ntt},
 };
 
 fn bench_ntt(c: &mut Criterion) {

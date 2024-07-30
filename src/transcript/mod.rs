@@ -9,7 +9,7 @@ use {
 
 pub struct Prover {
     sponge: Sponge,
-    proof: Vec<Fr>,
+    pub proof: Vec<Fr>,
 }
 
 pub struct Verifier<'a> {

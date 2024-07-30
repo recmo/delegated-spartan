@@ -2,7 +2,7 @@ use {
     ark_bn254::{Fr, G1Affine, G1Projective},
     ark_ec::scalar_mul::{fixed_base::FixedBase, variable_base::VariableBaseMSM},
     criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion, Throughput},
-    delegated_spartan::hyrax::pedersen::PedersenCommitter,
+    delegated_spartan::pcs::hyrax::pedersen::PedersenCommitter,
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
     std::array,

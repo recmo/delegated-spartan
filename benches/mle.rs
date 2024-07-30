@@ -3,7 +3,7 @@ use {
     criterion::{black_box, criterion_group, criterion_main, Criterion},
     delegated_spartan::{
         mle::{eval_mle, par_eval_mle, prove_sumcheck},
-        Prover,
+        transcript::Prover,
     },
     rand::{Rng, SeedableRng},
     rand_chacha::ChaCha20Rng,
@@ -31,10 +31,11 @@ fn bench_prove_sumcheck(c: &mut Criterion) {
     const SIZE: usize = 20;
     let mut rng = ChaCha20Rng::from_entropy();
     let mut f = (0..1 << SIZE).map(|_| rng.gen::<Fr>()).collect::<Vec<_>>();
+    let sum = f.iter().sum();
     c.bench_function("prove_sumcheck", |b| {
         b.iter(|| {
             let mut transcript = Prover::new();
-            prove_sumcheck(&mut transcript, &mut f, SIZE);
+            prove_sumcheck(&mut transcript, SIZE, &mut f, sum);
             transcript.finish()
         })
     });
