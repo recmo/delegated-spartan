@@ -6,7 +6,9 @@ edition = "2021"
 [dependencies]
 ark-bn254 = { version = "0.4.0", features = ["std"] }
 ark-ec = { version = "0.4.2", features = ["std"] }
-ark-ff = { version = "0.4.2", features = ["asm", "std"] }
+ark-ff = { version = "0.4.2", features = [
+    "asm", # TODO: Add aarch64 support to ff-asm.
+] }
 rand = "0.8.5"
 rand_chacha = { version = "0.3.1", features = ["simd"] }
 rayon = "1.10.0"

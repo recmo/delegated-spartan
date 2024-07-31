@@ -182,7 +182,7 @@ fn root(order: usize) -> Option<Fr> {
     }
 }
 
-// Compute a factor of n that is close to sqrt(n).
+// Compute the largest factor of n that is <= sqrt(n).
 fn sqrt_factor(n: usize) -> usize {
     debug_assert!(2415919104 % n == 0, "n must be a factor of 2415919104");
     let twos = n.trailing_zeros();

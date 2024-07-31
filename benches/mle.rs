@@ -2,7 +2,7 @@ use {
     ark_bn254::Fr,
     criterion::{black_box, criterion_group, criterion_main, Criterion},
     delegated_spartan::{
-        mle::{eval_mle, par_eval_mle, prove_sumcheck},
+        sum_check::{eval_mle, par_eval_mle, prove_sumcheck},
         transcript::Prover,
     },
     rand::{Rng, SeedableRng},

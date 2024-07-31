@@ -1,6 +1,7 @@
 use {
     num_traits::AsPrimitive,
     std::{
+        cmp::Ordering,
         fmt::{self, Display, Formatter},
         hint::black_box,
         time::{Duration, Instant},
@@ -28,27 +29,24 @@ pub fn human(value: impl AsPrimitive<f64>) -> impl Display {
 
     impl Display for Human {
         fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-            const SI_SMALL: &'static str = "mμnpfazyrq";
-            const SI_LARGE: &'static str = "kMGTPEZYRQ";
-            let log10 = if self.0 == 0.0 {
-                0.0
-            } else {
+            let log10 = if self.0.is_normal() {
                 self.0.abs().log10()
-            };
-            let separator = if f.alternate() { "" } else { " " };
-            let si_power = (log10 / 3.0).floor() as isize;
-            let digits = f.precision().unwrap_or(3) - 1 - (log10 - 3.0 * si_power as f64) as usize;
-            if si_power < 0 {
-                let value = self.0 * 10_f64.powi((-si_power * 3) as i32);
-                let suffix = SI_SMALL.chars().nth((-si_power - 1) as usize).unwrap();
-                write!(f, "{value:.digits$}{separator}{suffix}")
-            } else if si_power > 0 {
-                let value = self.0 * 10_f64.powi((-si_power * 3) as i32);
-                let suffix = SI_LARGE.chars().nth((si_power - 1) as usize).unwrap();
-                write!(f, "{value:.digits$}{separator}{suffix}")
             } else {
-                write!(f, "{:.digits$}{separator}", self.0)
+                0.0
+            };
+            let si_power = ((log10 / 3.0).floor() as isize).clamp(-10, 10);
+            let value = self.0 * 10_f64.powi((-si_power * 3) as i32);
+            let digits = f.precision().unwrap_or(3) - 1 - (log10 - 3.0 * si_power as f64) as usize;
+            let separator = if f.alternate() { "" } else { "\u{202F}" };
+            write!(f, "{value:.digits$}{separator}")?;
+            let suffix = "qryzafpnμm kMGTPEZYRQ"
+                .chars()
+                .nth((si_power + 10) as usize)
+                .unwrap();
+            if suffix != ' ' {
+                write!(f, "{suffix}")?;
             }
+            Ok(())
         }
     }
 

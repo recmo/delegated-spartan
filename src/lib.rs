@@ -1,9 +1,9 @@
 pub mod merkle_tree;
-pub mod mle;
 pub mod ntt;
 pub mod pcs;
 pub mod poseidon;
 pub mod reed_solomon;
+pub mod sum_check;
 pub mod transcript;
 
 use {
