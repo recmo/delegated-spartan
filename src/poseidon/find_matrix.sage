@@ -1,3 +1,4 @@
+#!/usr/bin/env sage
 import itertools
 
 # Bn254 scalar field

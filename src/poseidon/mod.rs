@@ -32,10 +32,11 @@ use {
 pub static COUNT_3: AtomicU32 = AtomicU32::new(0);
 pub static COUNT_16: AtomicU32 = AtomicU32::new(0);
 
-// Compress arbitrary length inputs.
+/// Compress arbitrary length inputs.
 // Compute 16-arry Merkle tree over input.
 // Layers are zero padded.
 // Compresses nodes using truncated width-16 Poseidon2.
+// TODO: We can go to 24-ary tree with 24 width Poseidon2.
 pub fn compress(input: &[Fr]) -> Fr {
     if input.len() <= 16 {
         let mut state = [Fr::ZERO; 16];
