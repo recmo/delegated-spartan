@@ -146,8 +146,8 @@ pub fn mat_full_16(state: &mut [Fr; 16]) {
 }
 
 /// Computes a 16x16 partial matrix.
-/// These are not MDS, but meet requirements set out in Poseidon2 paper.
-/// Ones + Diag [-8, -7, -6, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 8, 9]
+/// These meet requirements set out in Poseidon2 paper.
+/// Ones + Diag(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 14, 16, 17)
 // OPT: This would benefit from delayed reduction. If we do this using
 // additional bits in each limb, say base 2^43 over [u64; 6], we can do
 // ~six rounds before needing to propagate carries and reductions. These
@@ -155,47 +155,74 @@ pub fn mat_full_16(state: &mut [Fr; 16]) {
 pub fn mat_partial_16(state: &mut [Fr; 16]) {
     let sum: Fr = state.iter().sum();
 
-    // -8
-    state[0]
-        .neg_in_place()
+    // 0
+    state[0] = Fr::ZERO;
+    // 1
+    // 2
+    state[2].double_in_place();
+    // 3
+    state[3] += state[3].double();
+    // 4
+    state[4].double_in_place().double_in_place();
+    // 5
+    state[5] += state[5].double().double_in_place();
+    // 6
+    state[6].double_in_place();
+    state[6] += state[6].double();
+    // 7
+    let t = state[7];
+    state[7]
         .double_in_place()
         .double_in_place()
         .double_in_place();
-    // -7
-    state[1] -= state[1].double().double_in_place().double_in_place();
-    // -6
-    state[2].neg_in_place().double_in_place();
-    state[2] += state[2].double();
-    // -4
-    state[3].neg_in_place().double_in_place().double_in_place();
-    // -3
-    state[4].neg_in_place();
-    state[4] += state[4].double();
-    // -2
-    state[5].neg_in_place().double_in_place();
-    // -1
-    state[6].neg_in_place();
-    // 0
-    state[7] = Fr::ZERO;
-    // 1
-    // 2
-    state[9].double_in_place();
-    // 3
-    state[10] += state[10].double();
-    // 4
-    state[11].double_in_place().double_in_place();
-    // 5
-    state[12] += state[12].double().double_in_place();
-    // 6
-    state[13].double_in_place();
-    state[13] += state[13].double();
+    state[7] -= t;
     // 8
-    state[14]
+    state[8]
         .double_in_place()
         .double_in_place()
         .double_in_place();
     // 9
-    state[15] += state[15].double().double_in_place().double_in_place();
+    state[9] += state[9].double().double_in_place().double_in_place();
+    // 10
+    state[10].double_in_place();
+    state[10] += state[10].double().double_in_place();
+    // 11
+    let t = state[11];
+    state[11].double_in_place();
+    state[11] += state[11].double().double_in_place();
+    state[11] += t;
+    // 13
+    let t1 = state[12];
+    state[12].double_in_place();
+    let t2 = state[12];
+    state[12]
+        .double_in_place()
+        .double_in_place()
+        .double_in_place();
+    state[12] -= t1;
+    state[12] -= t2;
+    // 14
+    state[13].double_in_place();
+    let t2 = state[13];
+    state[13]
+        .double_in_place()
+        .double_in_place()
+        .double_in_place();
+    state[13] -= t2;
+    // 16
+    state[14]
+        .double_in_place()
+        .double_in_place()
+        .double_in_place()
+        .double_in_place();
+    // 17
+    let t = state[15];
+    state[15]
+        .double_in_place()
+        .double_in_place()
+        .double_in_place()
+        .double_in_place();
+    state[15] += t;
 
     state.iter_mut().for_each(|s| *s += sum);
 }
@@ -239,58 +266,59 @@ mod test {
 
     #[test]
     fn test_vector_16() {
+        // Test vector from <https://github.com/HorizenLabs/poseidon2/blob/bb476b9ca38198cf5092487283c8b8c5d4317c4e/poseidon2_rust_params.sage>
         let mut state = array::from_fn(|i| Fr::from(i as u64));
         permute_16(&mut state);
         assert_eq!(
             state,
             [
                 MontFp!(
-                    "21826543399356400550661234518745697083314121792488689649921600144027529528864"
+                    "7913381039332130239696391099451993335431181984785002668304949494341223775274"
                 ),
                 MontFp!(
-                    "1136614509231762972747684409955833585795356890395544147561079338856329844882"
+                    "13114653827862491802574904733838965281638599136692207397625218937112857111034"
                 ),
                 MontFp!(
-                    "7846203944249237147415415937111974637559001966398790080552410754200558542174"
+                    "5260853315038320427224620415642584677122388717694035179209277980943813780924"
                 ),
                 MontFp!(
-                    "20373295329607786911155447976406333283890521720422897656483348909518994545302"
+                    "7095024045008646205239214300853055797853073914974523849403489586109304674318"
                 ),
                 MontFp!(
-                    "10248258064547453812040141589882860977603883038550485389282160470216447363165"
+                    "11664126658871199607513817593804851005031659127482990910815038911508774317102"
                 ),
                 MontFp!(
-                    "12098580505374776657887220870209868366964886865846185818028508340624519625074"
+                    "21691268210223129298713399970686330714477903121168305788892425830857815420367"
                 ),
                 MontFp!(
-                    "21657356642314632644205483275755543092354720301692787626365690180578446876738"
+                    "15407749918419823821950514932508821086098597396159344284212197839468132459424"
                 ),
                 MontFp!(
-                    "6478671057384004322304903741220876585829134366815215569349583061873769419284"
+                    "3700132805016741054511056287749681800817432409246278104503824118777934690609"
                 ),
                 MontFp!(
-                    "9309480533852668150139011847800666441744286725509447134677492726769953022832"
+                    "13475608459764345682938188282460443165916896876560315420064665395458277714687"
                 ),
                 MontFp!(
-                    "5985411547970865813552103081855308627655089133168907392759728995974124438178"
+                    "18987216660139014734696038650605544213230472335532851371054548844179055634758"
                 ),
                 MontFp!(
-                    "21301812487058380531079694312167712492008196576067867213781569387743743843182"
+                    "17098838082363265763018775191456472278582317688982731800988108801795688061056"
                 ),
                 MontFp!(
-                    "1763211660252669208569231157523230802504062806987793786534192016715027324977"
+                    "3704449316190953774036093128903455108907706865492001018359052264170727740578"
                 ),
                 MontFp!(
-                    "21553224731557588082645730283660340925372392244504971109792566303605003960515"
+                    "8303990102165258148989759595771034397853874952332156771392628127282197656348"
                 ),
                 MontFp!(
-                    "7999909471375171029299048969340621865761306943552761985378629049678432780509"
+                    "18627657396274070742089584793052815672287729224897005011410297740742199191244"
                 ),
                 MontFp!(
-                    "9302130865923327285820247173837807967532413594680096813945954902727336131357"
+                    "6607980408076394938800075571563852892263752584185562986216463830821958103371"
                 ),
                 MontFp!(
-                    "2154283930331108770651074355844169723002810959432355459893611637953760401958"
+                    "12353300117943495010938017401947409192192248445045039923330878007229549978485"
                 ),
             ]
         );
@@ -299,19 +327,23 @@ mod test {
     #[test]
     fn test_vector_compress_100() {
         let input: [Fr; 100] = array::from_fn(|i| Fr::from(i as u64));
+        eprintln!("{}", compress(&input));
         assert_eq!(
             compress(&input),
-            MontFp!("2665897937932724574846245531196671064769192363661323320407720095098758813730"),
+            MontFp!(
+                "12499924002878240429854338251741815095221048573818181736189831611992454862386"
+            ),
         )
     }
 
     #[test]
     fn test_vector_compress_10000() {
         let input: [Fr; 10_000] = array::from_fn(|i| Fr::from(i as u64));
+        eprintln!("{}", compress(&input));
         assert_eq!(
             compress(&input),
             MontFp!(
-                "13856578634472258607721631967114693152972466009291698529880637216466519128197"
+                "14886603848044981475714290163318647373226509781142547401218185586086586147802"
             ),
         )
     }
